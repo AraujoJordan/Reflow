@@ -23,8 +23,6 @@ class Reflow<T> internal constructor(
     fun refresh() = refreshes.tryEmit(value = Unit)
 }
 
-
-
 fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     fetchPolicy: FetchPolicy<T> = FetchPolicy.NetworkOnly(),
