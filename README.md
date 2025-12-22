@@ -2,7 +2,7 @@
 
 A Kotlin Multiplatform library that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. Built on top of Kotlin Flows and designed to integrate seamlessly with Jetpack Compose.
 
-How to use it:
+### How to use it:
 
 ```kotlin
 class MyViewModel : ViewModel() {
@@ -32,6 +32,32 @@ fun MyScreen(viewModel: MyViewModel) {
 }
 ```
 
+For pagination flow:
+
+```kotlin
+class MyViewModel : ViewModel() {
+    val users = reflowPaginated { page ->
+        api.fetchUsers(page = page.value, size = page.pageSize)
+    }
+}
+```
+
+### LazyColumnPaginated Composable
+
+Use the built-in `LazyColumnPaginated` composable for automatic pagination with loading states:
+
+```kotlin
+@Composable
+fun UserListScreen(viewModel: MyViewModel) {
+    LazyColumnPaginated(
+        paginatedFlow = viewModel.users,
+        modifier = Modifier.fillMaxSize()
+    ) { user ->
+        UserItem(user = user)
+    }
+}
+```
+
 ## What is it?
 
 Reflow wraps your data fetching operations in a reactive Flow that automatically handles:
@@ -39,6 +65,7 @@ Reflow wraps your data fetching operations in a reactive Flow that automatically
 - **Flexible fetch policies** - Network-only, cache-only, or cache-then-network strategies
 - **Compose integration** - Direct integration with ViewModel and Compose state
 - **Error handling** - Automatic retry with configurable policies
+- **Pagination** - Built-in support for paginated lists with automatic load-more detection
 
 Perfect for building robust Android, iOS, and JVM applications that need reliable data fetching with minimal boilerplate.
 
@@ -51,6 +78,7 @@ Perfect for building robust Android, iOS, and JVM applications that need reliabl
 - 🧩 **Compose Ready** - First-class support for Jetpack Compose with reactive state
 - ⚡ **Coroutine-Based** - Built on Kotlin Coroutines and Flow for efficient async operations
 - 📡 **Multiple Fetch Policies** - Choose between network-only, cache-only, or cache-and-network strategies
+- 📄 **Pagination Support** - Built-in pagination with automatic load-more and LazyColumn integration
 
 ## Installation
 
