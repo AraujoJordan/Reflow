@@ -2,8 +2,6 @@
 
 A Kotlin Multiplatform library that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. Built on top of Kotlin Flows and designed to integrate seamlessly with Jetpack Compose.
 
-Reflow uses [Resultat](https://github.com/nicolashaan/resultat) for holding Loading, Success or Failure contents.
-
 How to use it:
 
 ```kotlin

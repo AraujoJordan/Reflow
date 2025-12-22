@@ -6,14 +6,14 @@ android-compileSdk = "36"
 kotlinxCoroutinesCore = "1.10.2"
 kotlinxIoCore = "0.8.2"
 lifecycleViewmodel = "2.9.6"
-resultat = "1.0.0"
 vanniktechMavenPublish = "0.35.0"
-compose-plugin = "1.9.3"
+compose-plugin = "1.7.3"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-plugin" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-plugin" }
+compose-material = { module = "org.jetbrains.compose.material:material", version.ref = "compose-plugin" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-plugin" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-plugin" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-plugin" }
@@ -22,7 +22,6 @@ kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.re
 lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "lifecycleViewmodel" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodel" }
-resultat = { module = "fr.haan.resultat:resultat", version.ref = "resultat" }
 
 [plugins]
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

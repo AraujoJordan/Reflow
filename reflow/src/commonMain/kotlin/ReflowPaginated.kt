@@ -1,16 +1,34 @@
 package com.araujojordan.reflow
 
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.*
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Snackbar
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import fr.haan.resultat.Resultat
+import com.araujojordan.reflow.reflow.generated.resources.Res
+import com.araujojordan.reflow.reflow.generated.resources.generic_error
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.io.IOException
+import org.jetbrains.compose.resources.stringResource
+import kotlin.collections.orEmpty
 
 data class PaginatedState<T>(
     val items: List<T>,
@@ -18,78 +36,136 @@ data class PaginatedState<T>(
     val hasMorePages: Boolean = true,
 )
 
-sealed class PaginationKey {
-    data class Page(val value: Int) : PaginationKey()
-    data class Cursor(val value: String) : PaginationKey()
+sealed class Page(open val pageSize: Int = 10) {
+    data class Number(val value: Int = 0, override val pageSize: Int = 10) : Page(pageSize)
+    data class Cursor(val value: String, override val pageSize: Int = 10) : Page(pageSize)
 }
 
-sealed class PaginatedFetchPolicy<T>(
-    open val maxRetries: Int = Reflow.MAX_RETRIES,
-    open val retryDelay: Long = Reflow.RETRY_DELAY,
-    open val shouldRetry: (Throwable) -> Boolean = { it is IOException },
+@Composable
+fun <T> LazyColumnPaginated(
+    paginatedFlow: ReflowPaginated<T>,
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    reverseLayout: Boolean = false,
+    verticalArrangement: Arrangement.Vertical =
+        if (!reverseLayout) Arrangement.Top else Arrangement.Bottom,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    flingBehavior: FlingBehavior = ScrollableDefaults.flingBehavior(),
+    userScrollEnabled: Boolean = true,
+    key: ((item: T) -> Any)? = null,
+    onLoading: LazyListScope.() -> Unit = {
+        item {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+    },
+    onError: LazyListScope.(Throwable) -> Unit = {
+        item {
+            Snackbar(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = Color.Red,
+                contentColor = Color.White,
+            ) {
+                Text(
+                    text = stringResource(Res.string.generic_error),
+                    color = Color.White
+                )
+            }
+        }
+    },
+    content: @Composable LazyItemScope.(item: T) -> Unit
 ) {
-    data class NetworkOnly<T>(
-        override val maxRetries: Int = Reflow.MAX_RETRIES,
-        override val retryDelay: Long = Reflow.RETRY_DELAY,
-        override val shouldRetry: (Throwable) -> Boolean = { it is IOException },
-    ) : PaginatedFetchPolicy<T>(maxRetries, retryDelay, shouldRetry)
-
-    data class CacheAndNetwork<T>(
-        val onStore: suspend (PaginationKey, List<T>) -> Unit,
-        val onRetrieve: suspend (PaginationKey) -> List<T>?,
-        override val maxRetries: Int = Reflow.MAX_RETRIES,
-        override val retryDelay: Long = Reflow.RETRY_DELAY,
-        override val shouldRetry: (Throwable) -> Boolean = { it is IOException },
-    ) : PaginatedFetchPolicy<T>(maxRetries, retryDelay, shouldRetry)
+    val list by paginatedFlow.stateFlow.collectAsState()
+    LazyColumn(
+        modifier = modifier,
+        state = state,
+        contentPadding = contentPadding,
+        reverseLayout = reverseLayout,
+        verticalArrangement = verticalArrangement,
+        horizontalAlignment = horizontalAlignment,
+        flingBehavior = flingBehavior,
+        userScrollEnabled = userScrollEnabled,
+    ) {
+        if (list.isFailure) {
+            onError(list.exceptionOrNull()!!)
+        }
+        items(
+            items = list.getOrNull()?.items.orEmpty(),
+            key = key,
+            itemContent = content,
+        )
+        if (list.isLoading) {
+            item {
+                if(!paginatedFlow.hasMorePages) {
+                    paginatedFlow.loadMore()
+                }
+            }
+            onLoading()
+        }
+    }
 }
 
 class ReflowPaginated<T> internal constructor(
     private val refreshTrigger: MutableSharedFlow<Unit>,
     private val loadMoreTrigger: MutableSharedFlow<Unit>,
-    val stateFlow: StateFlow<Resultat<PaginatedState<T>>>,
+    val stateFlow: StateFlow<Resulting<PaginatedState<T>>>,
 ) {
-    val state @Composable get() = stateFlow.collectAsState()
 
     val hasMorePages: Boolean
-        get() = (stateFlow.value as? Resultat.Success)?.value?.hasMorePages ?: true
+        get() = stateFlow.value.getOrNull()?.hasMorePages ?: true
 
     val isLoadingMore: Boolean
-        get() = (stateFlow.value as? Resultat.Success)?.value?.isLoadingMore ?: false
+        get() = stateFlow.value.getOrNull()?.isLoadingMore ?: false
 
     fun refresh() = refreshTrigger.tryEmit(Unit)
-
     fun loadMore() = loadMoreTrigger.tryEmit(Unit)
 }
 
 fun <T> ViewModel.reflowPaginated(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    pageSize: Int = 10,
-    initialPage: PaginationKey = PaginationKey.Page(1),
-    initial: Resultat<PaginatedState<T>> = Resultat.loading(),
+    initialPage: Page.Number = Page.Number(),
+    initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    fetchPolicy: PaginatedFetchPolicy<T> = PaginatedFetchPolicy.NetworkOnly(),
-    fetch: suspend (pageKey: PaginationKey, pageSize: Int) -> List<T>,
+    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    fetch: suspend (pageKey: Page.Number) -> List<T>,
 ): ReflowPaginated<T> = reflowPaginatedIn(
     scope = viewModelScope,
     dispatcher = dispatcher,
-    pageSize = pageSize,
     initialPage = initialPage,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
     fetchPolicy = fetchPolicy,
-    fetch = fetch,
+    fetch = { fetch.invoke(it as Page.Number) },
+)
+
+fun <T> ViewModel.reflowPaginated(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    initialPage: Page.Cursor,
+    initial: Resulting<PaginatedState<T>> = Resulting.loading(),
+    shouldLoadingOnRefresh: Boolean = true,
+    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    fetch: suspend (pageKey: Page) -> List<T>,
+): ReflowPaginated<T> = reflowPaginatedIn(
+    scope = viewModelScope,
+    dispatcher = dispatcher,
+    initialPage = initialPage,
+    initial = initial,
+    shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+    fetchPolicy = fetchPolicy,
+    fetch = { fetch.invoke(it as Page.Cursor) },
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> reflowPaginatedIn(
     scope: CoroutineScope,
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    pageSize: Int = 10,
-    initialPage: PaginationKey = PaginationKey.Page(1),
-    initial: Resultat<PaginatedState<T>> = Resultat.loading(),
+    initialPage: Page = Page.Number(0),
+    initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    fetchPolicy: PaginatedFetchPolicy<T> = PaginatedFetchPolicy.NetworkOnly(),
-    fetch: suspend (pageKey: PaginationKey, pageSize: Int) -> List<T>,
+    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    fetch: suspend (pageKey: Page) -> List<T>,
 ): ReflowPaginated<T> {
     val refreshTrigger = MutableSharedFlow<Unit>(
         replay = 1,
@@ -109,7 +185,7 @@ fun <T> reflowPaginatedIn(
         loadMoreTrigger = loadMoreTrigger,
         stateFlow = refreshTrigger.flatMapLatest {
             val mutex = Mutex()
-            var currentPageKey: PaginationKey? = initialPage
+            var currentPageKey: Page? = initialPage
             val accumulatedItems = mutableListOf<T>()
             var hasMorePages = true
 
@@ -117,37 +193,53 @@ fun <T> reflowPaginatedIn(
                 val pageKey = currentPageKey
                     ?: return PaginatedState(accumulatedItems.toList(), false, false)
 
-                val cachedItems = when (fetchPolicy) {
-                    is PaginatedFetchPolicy.CacheAndNetwork -> fetchPolicy.onRetrieve(pageKey)
-                    is PaginatedFetchPolicy.NetworkOnly -> null
-                }
+                when (fetchPolicy) {
+                    is FetchPolicy.NetworkOnly -> {
+                        val pageItems = fetch(pageKey)
+                        accumulatedItems.addAll(pageItems)
+                        hasMorePages = pageItems.size >= pageKey.pageSize
+                    }
 
-                if (cachedItems != null) {
-                    accumulatedItems.addAll(cachedItems)
-                }
+                    is FetchPolicy.CacheOnly -> {
+                        val cachedItems = fetchPolicy.onRetrieve.first()
+                        accumulatedItems.clear()
+                        accumulatedItems.addAll(cachedItems)
+                        hasMorePages = false
+                    }
 
-                val fetchedItems = fetch(pageKey, pageSize)
-
-                if (fetchPolicy is PaginatedFetchPolicy.CacheAndNetwork) {
-                    scope.launch(dispatcher) { fetchPolicy.onStore(pageKey, fetchedItems) }
-                }
-
-                if (cachedItems == null) {
-                    accumulatedItems.addAll(fetchedItems)
-                } else if (cachedItems != fetchedItems) {
-                    val startIndex = accumulatedItems.size - cachedItems.size
-                    if (startIndex >= 0) {
-                        for (i in fetchedItems.indices) {
-                            if (startIndex + i < accumulatedItems.size) {
-                                accumulatedItems[startIndex + i] = fetchedItems[i]
-                            } else {
-                                accumulatedItems.add(fetchedItems[i])
-                            }
+                    is FetchPolicy.CacheAndNetwork -> {
+                        val cachedItems = try {
+                            fetchPolicy.onRetrieve.first()
+                        } catch (e: Exception) {
+                            null
                         }
+
+                        if (cachedItems != null && accumulatedItems.isEmpty()) {
+                            accumulatedItems.addAll(cachedItems)
+                        }
+
+                        val pageItems = fetch(pageKey)
+
+                        if (cachedItems != null && accumulatedItems.size <= cachedItems.size) {
+                            val itemsToReplace = minOf(pageItems.size, accumulatedItems.size)
+                            for (i in 0 until itemsToReplace) {
+                                accumulatedItems[i] = pageItems[i]
+                            }
+                            for (i in itemsToReplace until pageItems.size) {
+                                accumulatedItems.add(pageItems[i])
+                            }
+                        } else {
+                            accumulatedItems.addAll(pageItems)
+                        }
+
+                        scope.launch(dispatcher) {
+                            fetchPolicy.onStore(accumulatedItems.toList())
+                        }
+
+                        hasMorePages = pageItems.size >= pageKey.pageSize
                     }
                 }
 
-                hasMorePages = fetchedItems.size >= pageSize
                 currentPageKey = if (hasMorePages) nextPage(pageKey) else null
 
                 return PaginatedState(accumulatedItems.toList(), false, hasMorePages)
@@ -167,16 +259,16 @@ fun <T> reflowPaginatedIn(
                 val canRetry = (attempt + 1) < fetchPolicy.maxRetries && fetchPolicy.shouldRetry(cause)
                 if (canRetry) delay(fetchPolicy.retryDelay)
                 canRetry
-            }.map { Resultat.success(it) }
+            }.map { Resulting.content(it) }
                 .onStart {
                     if (isFirstEmission) {
-                        if (initial.isLoading) emit(Resultat.loading())
+                        if (initial.isLoading) emit(Resulting.loading())
                         isFirstEmission = false
                     } else if (shouldLoadingOnRefresh) {
-                        emit(Resultat.loading())
+                        emit(Resulting.loading())
                     }
                 }
-                .catch { emit(Resultat.failure(it)) }
+                .catch { emit(Resulting.failure(it)) }
         }.stateIn(
             scope = scope,
             started = SharingStarted.Lazily,
@@ -185,9 +277,9 @@ fun <T> reflowPaginatedIn(
     )
 }
 
-private fun nextPage(current: PaginationKey): PaginationKey {
+private fun nextPage(current: Page): Page {
     return when (current) {
-        is PaginationKey.Page -> PaginationKey.Page(current.value + 1)
-        is PaginationKey.Cursor -> current
+        is Page.Number -> Page.Number(current.value + 1)
+        is Page.Cursor -> current
     }
 }

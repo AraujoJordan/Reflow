@@ -1,6 +1,5 @@
 package com.araujojordan.reflow
 
-import fr.haan.resultat.Resultat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -11,7 +10,6 @@ import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -22,15 +20,15 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 10,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 10),
+        ) {
             delay(500L)
             listOf("Item 1", "Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
     }
 
     @Test
@@ -38,19 +36,19 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 10,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 10),
+        ) {
             delay(500L)
             listOf("Item 1", "Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(501L)
         val result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(listOf("Item 1", "Item 2"), result.value.items)
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("Item 1", "Item 2"), result.getOrNull()?.items)
     }
 
     @Test
@@ -58,19 +56,21 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn<String>(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 10,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 10),
+        ) {
             delay(500L)
             error("Something went wrong")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(501L)
+        val result = stateFlow.first()
+        assertTrue(result.isFailure)
         assertEquals(
             expected = "Something went wrong",
-            actual = (stateFlow.first() as Resultat.Failure).exception.message,
+            actual = result.exceptionOrNull()?.message,
         )
     }
 
@@ -79,16 +79,16 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn<String>(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 10,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 10),
+        ) {
             throw IOException("Bad network")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(Reflow.RETRY_DELAY * Reflow.MAX_RETRIES + 100L)
-        assertIs<Resultat.Failure>(stateFlow.first())
+        assertTrue(stateFlow.first().isFailure)
     }
 
     @Test
@@ -97,31 +97,31 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
-        ) { pageKey, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 2),
+        ) { pageKey ->
             delay(100L)
             pagesFetched++
-            val page = (pageKey as PaginationKey.Page).value
+            val page = (pageKey as Page.Number).value
             listOf("Page $page Item 1", "Page $page Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         var result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(2, result.value.items.size)
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull()?.items?.size)
         assertEquals(1, pagesFetched)
 
         reflow.loadMore()
         advanceTimeBy(101L)
         result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(4, result.value.items.size)
+        assertTrue(result.isSuccess)
+        assertEquals(4, result.getOrNull()?.items?.size)
         assertEquals(2, pagesFetched)
-        assertEquals("Page 1 Item 1", result.value.items[0])
-        assertEquals("Page 2 Item 1", result.value.items[2])
+        assertEquals("Page 1 Item 1", result.getOrNull()?.items?.get(0))
+        assertEquals("Page 2 Item 1", result.getOrNull()?.items?.get(2))
     }
 
     @Test
@@ -129,19 +129,19 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 10,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 10),
+        ) {
             delay(100L)
             listOf("Item 1", "Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         val result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertFalse(result.value.hasMorePages)
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull()?.hasMorePages ?: true)
         assertFalse(reflow.hasMorePages)
     }
 
@@ -150,19 +150,19 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
-        ) { _, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 2),
+        ) {
             delay(100L)
             listOf("Item 1", "Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         val result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertTrue(result.value.hasMorePages)
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrNull()?.hasMorePages ?: false)
         assertTrue(reflow.hasMorePages)
     }
 
@@ -172,39 +172,39 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
+            initialPage = Page.Number(value = 1, pageSize = 2),
             shouldLoadingOnRefresh = true,
-        ) { pageKey, _ ->
+        ) { pageKey ->
             delay(100L)
             pagesFetched++
-            val page = (pageKey as PaginationKey.Page).value
+            val page = (pageKey as Page.Number).value
             listOf("Fetch $pagesFetched Page $page Item 1", "Fetch $pagesFetched Page $page Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         var result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(2, result.value.items.size)
-        assertEquals("Fetch 1 Page 1 Item 1", result.value.items[0])
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull()?.items?.size)
+        assertEquals("Fetch 1 Page 1 Item 1", result.getOrNull()?.items?.get(0))
 
         reflow.loadMore()
         advanceTimeBy(101L)
         result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(4, result.value.items.size)
+        assertTrue(result.isSuccess)
+        assertEquals(4, result.getOrNull()?.items?.size)
 
         reflow.refresh()
         advanceTimeBy(1L)
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
 
         advanceTimeBy(100L)
         result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(2, result.value.items.size)
-        assertEquals("Fetch 3 Page 1 Item 1", result.value.items[0])
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrNull()?.items?.size)
+        assertEquals("Fetch 3 Page 1 Item 1", result.getOrNull()?.items?.get(0))
     }
 
     @Test
@@ -212,83 +212,83 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
-        ) { pageKey, _ ->
+            initialPage = Page.Number(value = 1, pageSize = 2),
+        ) { pageKey ->
             delay(100L)
-            val page = (pageKey as PaginationKey.Page).value
+            val page = (pageKey as Page.Number).value
             listOf("Page $page Item 1", "Page $page Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         var result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertFalse(result.value.isLoadingMore)
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull()?.isLoadingMore ?: true)
 
         reflow.loadMore()
         advanceTimeBy(101L)
         result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertFalse(result.value.isLoadingMore)
-        assertEquals(4, result.value.items.size)
+        assertTrue(result.isSuccess)
+        assertFalse(result.getOrNull()?.isLoadingMore ?: true)
+        assertEquals(4, result.getOrNull()?.items?.size)
     }
 
     @Test
-    fun `should save cache per page when FetchPolicy is CacheAndNetwork`() = runTest {
-        val cache = mutableMapOf<PaginationKey, List<String>>()
+    fun `should save cache when FetchPolicy is CacheAndNetwork`() = runTest {
+        var cachedItems: List<String>? = null
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
-            fetchPolicy = PaginatedFetchPolicy.CacheAndNetwork(
-                onStore = { key, items -> cache[key] = items },
-                onRetrieve = { key -> cache[key] },
+            initialPage = Page.Number(value = 1, pageSize = 2),
+            fetchPolicy = FetchPolicy.CacheAndNetwork(
+                onStore = { items -> cachedItems = items },
+                onRetrieve = suspend { cachedItems ?: emptyList() },
             ),
-        ) { pageKey, _ ->
+        ) { pageKey ->
             delay(100L)
-            val page = (pageKey as PaginationKey.Page).value
+            val page = (pageKey as Page.Number).value
             listOf("Page $page Item 1", "Page $page Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertTrue(cache.isEmpty())
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(cachedItems == null)
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(102L)
         val result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(1, cache.size)
-        assertEquals(listOf("Page 1 Item 1", "Page 1 Item 2"), cache[PaginationKey.Page(1)])
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("Page 1 Item 1", "Page 1 Item 2"), cachedItems)
+        assertEquals(listOf("Page 1 Item 1", "Page 1 Item 2"), result.getOrNull()?.items)
     }
 
     @Test
-    fun `should retrieve from cache per page when FetchPolicy is CacheAndNetwork`() = runTest {
-        val cache = mutableMapOf<PaginationKey, List<String>>(
-            PaginationKey.Page(1) to listOf("Cached Item 1", "Cached Item 2")
-        )
+    fun `should retrieve from cache and replace with network data when FetchPolicy is CacheAndNetwork`() = runTest {
+        var cachedItems: List<String>? = listOf("Cached Item 1", "Cached Item 2")
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            pageSize = 2,
-            fetchPolicy = PaginatedFetchPolicy.CacheAndNetwork(
-                onStore = { key, items -> cache[key] = items },
-                onRetrieve = { key -> cache[key] },
+            initialPage = Page.Number(value = 1, pageSize = 2),
+            fetchPolicy = FetchPolicy.CacheAndNetwork(
+                onStore = { items -> cachedItems = items },
+                onRetrieve = suspend { cachedItems ?: emptyList() },
             ),
-        ) { pageKey, _ ->
+        ) { pageKey ->
             delay(100L)
-            val page = (pageKey as PaginationKey.Page).value
+            val page = (pageKey as Page.Number).value
             listOf("Fetched Page $page Item 1", "Fetched Page $page Item 2")
         }
 
         val stateFlow = reflow.stateFlow
 
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(101L)
         val result = stateFlow.first()
-        assertIs<Resultat.Success<PaginatedState<String>>>(result)
-        assertEquals(listOf("Fetched Page 1 Item 1", "Fetched Page 1 Item 2"), result.value.items)
-        assertFalse(result.value.isLoadingMore)
+        assertTrue(result.isSuccess)
+        // Network data should replace cached data
+        assertEquals(listOf("Fetched Page 1 Item 1", "Fetched Page 1 Item 2"), result.getOrNull()?.items)
+        assertEquals(listOf("Fetched Page 1 Item 1", "Fetched Page 1 Item 2"), cachedItems)
+        assertFalse(result.getOrNull()?.isLoadingMore ?: true)
     }
 }

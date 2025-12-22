@@ -1,6 +1,5 @@
 package com.araujojordan.reflow
 
-import fr.haan.resultat.Resultat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,8 +11,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ReflowTest {
@@ -34,7 +33,7 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // Then
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
     }
 
     @Test
@@ -53,9 +52,11 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // Then
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(501L)
-        assertEquals(Resultat.success("Fetched"), stateFlow.first())
+        val result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetched", result.getOrNull())
     }
 
     @Test
@@ -74,11 +75,13 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // Then
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(501L)
+        val result = stateFlow.first()
+        assertTrue(result.isFailure)
         assertEquals(
             expected = "Something went wrong",
-            actual = (stateFlow.first() as Resultat.Failure).exception.message,
+            actual = result.exceptionOrNull()?.message,
         )
     }
 
@@ -98,10 +101,10 @@ class ReflowTest {
 
         // Then
         repeat(Reflow.MAX_RETRIES) {
-            assertIs<Resultat.Loading>(stateFlow.first())
+            assertTrue(stateFlow.first().isLoading)
             advanceTimeBy(Reflow.RETRY_DELAY)
         }
-        assertIs<Resultat.Failure>(stateFlow.first())
+        assertTrue(stateFlow.first().isFailure)
     }
 
     @Test
@@ -119,16 +122,20 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // When
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(3L)
-        assertEquals(Resultat.success("Fetch number 1"), stateFlow.first())
+        var result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 1", result.getOrNull())
         reflow.refresh()
         advanceTimeBy(1L)
 
         // Then
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(3L)
-        assertEquals(Resultat.success("Fetch number 2"), stateFlow.first())
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 2", result.getOrNull())
     }
 
     @Test
@@ -145,19 +152,27 @@ class ReflowTest {
             },
         )
         val stateFlow = reflow.stateFlow
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(3L)
-        assertEquals(Resultat.success("Fetch number 1"), stateFlow.first())
+        var result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 1", result.getOrNull())
 
         // When
         reflow.refresh()
 
         // Then
-        assertEquals(Resultat.success("Fetch number 1"), stateFlow.first())
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 1", result.getOrNull())
         advanceTimeBy(1L)
-        assertEquals(Resultat.success("Fetch number 1"), stateFlow.first())
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 1", result.getOrNull())
         advanceTimeBy(2L)
-        assertEquals(Resultat.success("Fetch number 2"), stateFlow.first())
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetch number 2", result.getOrNull())
     }
 
     @Test
@@ -182,9 +197,11 @@ class ReflowTest {
 
         // Then
         assertNull(cacheValue)
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(501L)
-        assertEquals(Resultat.success("Fetched"), stateFlow.first())
+        val result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetched", result.getOrNull())
         assertEquals("Fetched", cacheValue)
     }
 
@@ -209,11 +226,15 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // Then
-        assertIs<Resultat.Loading>(stateFlow.first())
+        assertTrue(stateFlow.first().isLoading)
         advanceTimeBy(1L)
-        assertEquals(Resultat.success("Cached"), stateFlow.first())
+        var result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Cached", result.getOrNull())
         advanceTimeBy(500L)
-        assertEquals(Resultat.success("Fetched"), stateFlow.first())
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetched", result.getOrNull())
         assertEquals("Fetched", cacheValue.value)
     }
 }

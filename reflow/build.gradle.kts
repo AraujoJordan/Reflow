@@ -5,8 +5,8 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
-    alias(libs.plugins.jetbrainsCompose) apply false
-    alias(libs.plugins.compose.compiler) apply false
+    alias(libs.plugins.jetbrainsCompose)
+    alias(libs.plugins.compose.compiler)
 }
 
 group = "com.araujojordan.reflow"
@@ -36,11 +36,16 @@ kotlin {
     iosArm64()
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.resultat)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.kotlinx.io.core)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.material)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.components.resources)
         }
 
         commonTest.dependencies {
@@ -52,7 +57,9 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    if (project.hasProperty("signing.keyId")) {
+        signAllPublications()
+    }
     coordinates(group.toString(), "reflow", version.toString())
     pom {
         name = "Reflow"
