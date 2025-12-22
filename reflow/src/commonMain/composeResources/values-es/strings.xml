@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="generic_error">Algo salió mal</string>
+    <string name="retry">Reintentar</string>
 </resources>

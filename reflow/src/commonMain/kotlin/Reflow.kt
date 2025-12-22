@@ -1,12 +1,58 @@
 package com.araujojordan.reflow
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.araujojordan.reflow.reflow.generated.resources.Res
+import com.araujojordan.reflow.reflow.generated.resources.generic_error
+import com.araujojordan.reflow.reflow.generated.resources.retry
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
+import org.jetbrains.compose.resources.stringResource
+
+@Composable
+fun <T> ReflowBox(
+    reflow: Reflow<T>,
+    modifier: Modifier = Modifier,
+    onLoading: @Composable () -> Unit = {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    },
+    onError: @Composable (Throwable, () -> Unit) -> Unit = { _, retry ->
+        Column(
+            modifier = modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = stringResource(Res.string.generic_error))
+            Button(onClick = retry) {
+                Text(text = stringResource(Res.string.retry))
+            }
+        }
+    },
+    content: @Composable (T) -> Unit,
+) = Box(modifier = modifier) {
+    val state by reflow.stateFlow.collectAsState()
+    state.foldUi(
+        onLoading = { onLoading() },
+        onSuccess = { content(it) },
+        onFailure = { onError(it, reflow::refresh) }
+    )
+}
 
 class Reflow<T> internal constructor(
     private val refreshes: MutableSharedFlow<Unit>,

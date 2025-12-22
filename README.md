@@ -19,20 +19,29 @@ Then in your Compose UI:
 ```kotlin
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
-    
-    val data by viewModel.uiState.state
-    
-    SwipeRefresh(onRefresh = { viewModel.uiState.refresh() }) {
-        when (data) {
-            is Resultat.Loading -> CircularProgressIndicator()
-            is Resultat.Success -> MyContent(state.value)
-            is Resultat.Failure -> ErrorMessage(onRetry = { viewModel.uiState.refresh() })
-        }
+    ReflowBox(viewModel.uiState) { ui ->
+        MyContent(ui)
     }
 }
 ```
 
-For pagination flow:
+Or more customizable like:
+
+```kotlin
+@Composable
+fun MyScreen(viewModel: MyViewModel) {
+    val data by viewModel.uiState.state
+    SwipeRefresh(onRefresh = { viewModel.uiState.refresh() }) {
+        data.foldUi(
+            onLoading = { CircularProgressIndicator() },
+            onSuccess = { value -> MyContent(value) },
+            onFailure = { error -> ErrorMessage(onRetry = { viewModel.uiState.refresh() }) }
+        )
+    }
+}
+```
+
+### For pagination flow:
 
 ```kotlin
 class MyViewModel : ViewModel() {
@@ -213,7 +222,7 @@ Customize the initial state of your Reflow:
 
 ```kotlin
 val users = reflow(
-    initial = Resultat.success(emptyList()) // Start with empty list instead of loading
+    initial = Resulting.success(emptyList()) // Start with empty list instead of loading
 ) {
     api.fetchUsers()
 }
@@ -227,7 +236,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [GitHub Repository](https://github.com/AraujoJordan/reflow)
 - [Issue Tracker](https://github.com/AraujoJordan/reflow/issues)
-- [Resultat Library](https://github.com/Haan-Studios/resultat)
 
 ---
 

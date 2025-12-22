@@ -1,5 +1,7 @@
 package com.araujojordan.reflow
 
+import androidx.compose.runtime.Composable
+
 /**
  * Represent a LCE (Loading, Content or Error) values
  * it uses [Kotlin.Result] to represent the Content/Error cases (success/failure)
@@ -24,6 +26,15 @@ class Resulting<T> private constructor(internal var value: kotlin.Result<T>? = n
         onSuccess: (T) -> R,
         onFailure: (Throwable) -> R
     ): R = value?.fold(onSuccess, onFailure) ?: onLoading()
+
+    @Composable fun <R> foldUi(
+        onLoading: @Composable () -> R,
+        onSuccess: @Composable (T) -> R,
+        onFailure: @Composable (Throwable) -> R
+    ): R = value?.fold(
+        onSuccess = { onSuccess(it) },
+        onFailure = { onFailure(it) }
+    ) ?: onLoading()
 
     fun <R> map(transform: (T) -> R): Resulting<R> = value?.map(transform)?.let { Resulting(it) } ?: loading()
 
