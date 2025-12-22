@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.araujojordan.reflow"
-version = "0.0.1"
+version = "0.0.2"
 
 kotlin {
     jvm()
@@ -57,9 +57,7 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral()
-    if (project.hasProperty("signing.keyId") || project.hasProperty("signingInMemoryKey")) {
-        signAllPublications()
-    }
+    signAllPublications()
     coordinates(group.toString(), "reflow", version.toString())
     pom {
         name = "Reflow"
