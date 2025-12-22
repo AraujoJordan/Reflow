@@ -1,4 +1,4 @@
-package com.araujojordan.reflow
+package io.github.araujojordan.reflow
 
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -19,8 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.araujojordan.reflow.reflow.generated.resources.Res
-import com.araujojordan.reflow.reflow.generated.resources.generic_error
+import io.github.araujojordan.reflow.generated.resources.Res
+import io.github.araujojordan.reflow.generated.resources.generic_error
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*

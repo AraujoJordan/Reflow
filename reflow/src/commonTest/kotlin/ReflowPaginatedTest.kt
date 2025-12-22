@@ -1,4 +1,4 @@
-package com.araujojordan.reflow
+package io.github.araujojordan.reflow
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
