@@ -2,6 +2,9 @@ name: Publish
 on:
   release:
     types: [released, prereleased]
+  push:
+    tags:
+      - '*'
 jobs:
   publish:
     name: Release build and publish
