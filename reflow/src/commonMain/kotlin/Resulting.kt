@@ -1,4 +1,4 @@
-package com.araujojordan.reflow
+package io.github.araujojordan
 
 import androidx.compose.runtime.Composable
 

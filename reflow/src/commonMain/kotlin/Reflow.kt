@@ -1,4 +1,4 @@
-package com.araujojordan.reflow
+package io.github.araujojordan
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,9 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.araujojordan.reflow.reflow.generated.resources.Res
-import com.araujojordan.reflow.reflow.generated.resources.generic_error
-import com.araujojordan.reflow.reflow.generated.resources.retry
+import io.github.araujojordan.reflow.generated.resources.Res
+import io.github.araujojordan.reflow.generated.resources.generic_error
+import io.github.araujojordan.reflow.generated.resources.retry
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*

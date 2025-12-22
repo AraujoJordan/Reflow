@@ -9,13 +9,13 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-group = "com.araujojordan.reflow"
-version = "0.0.2"
+group = "io.github.araujojordan"
+version = "0.0.5"
 
 kotlin {
     jvm()
     androidLibrary {
-        namespace = "com.araujojordan.reflow"
+        namespace = "io.github.araujojordan"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
