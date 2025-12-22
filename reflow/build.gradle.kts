@@ -57,7 +57,7 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral()
-    if (project.hasProperty("signing.keyId")) {
+    if (project.hasProperty("signing.keyId") || project.hasProperty("signingInMemoryKey")) {
         signAllPublications()
     }
     coordinates(group.toString(), "reflow", version.toString())
