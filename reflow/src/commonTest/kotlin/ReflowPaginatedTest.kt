@@ -87,7 +87,7 @@ class ReflowPaginatedTest {
         val stateFlow = reflow.stateFlow
 
         assertTrue(stateFlow.first().isLoading)
-        advanceTimeBy(Reflow.RETRY_DELAY * Reflow.MAX_RETRIES + 100L)
+        advanceTimeBy(RETRY_DELAY * MAX_RETRIES + 100L)
         assertTrue(stateFlow.first().isFailure)
     }
 
@@ -235,60 +235,5 @@ class ReflowPaginatedTest {
         assertEquals(4, result.getOrNull()?.items?.size)
     }
 
-    @Test
-    fun `should save cache when FetchPolicy is CacheAndNetwork`() = runTest {
-        var cachedItems: List<String>? = null
-        val reflow = reflowPaginatedIn(
-            scope = backgroundScope,
-            dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
-            fetchPolicy = FetchPolicy.CacheAndNetwork(
-                onStore = { items -> cachedItems = items },
-                onRetrieve = suspend { cachedItems ?: emptyList() },
-            ),
-        ) { pageKey ->
-            delay(100L)
-            val page = (pageKey as Page.Number).value
-            listOf("Page $page Item 1", "Page $page Item 2")
-        }
 
-        val stateFlow = reflow.stateFlow
-
-        assertTrue(cachedItems == null)
-        assertTrue(stateFlow.first().isLoading)
-        advanceTimeBy(102L)
-        val result = stateFlow.first()
-        assertTrue(result.isSuccess)
-        assertEquals(listOf("Page 1 Item 1", "Page 1 Item 2"), cachedItems)
-        assertEquals(listOf("Page 1 Item 1", "Page 1 Item 2"), result.getOrNull()?.items)
-    }
-
-    @Test
-    fun `should retrieve from cache and replace with network data when FetchPolicy is CacheAndNetwork`() = runTest {
-        var cachedItems: List<String>? = listOf("Cached Item 1", "Cached Item 2")
-        val reflow = reflowPaginatedIn(
-            scope = backgroundScope,
-            dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
-            fetchPolicy = FetchPolicy.CacheAndNetwork(
-                onStore = { items -> cachedItems = items },
-                onRetrieve = suspend { cachedItems ?: emptyList() },
-            ),
-        ) { pageKey ->
-            delay(100L)
-            val page = (pageKey as Page.Number).value
-            listOf("Fetched Page $page Item 1", "Fetched Page $page Item 2")
-        }
-
-        val stateFlow = reflow.stateFlow
-
-        assertTrue(stateFlow.first().isLoading)
-        advanceTimeBy(101L)
-        val result = stateFlow.first()
-        assertTrue(result.isSuccess)
-        // Network data should replace cached data
-        assertEquals(listOf("Fetched Page 1 Item 1", "Fetched Page 1 Item 2"), result.getOrNull()?.items)
-        assertEquals(listOf("Fetched Page 1 Item 1", "Fetched Page 1 Item 2"), cachedItems)
-        assertFalse(result.getOrNull()?.isLoadingMore ?: true)
-    }
 }

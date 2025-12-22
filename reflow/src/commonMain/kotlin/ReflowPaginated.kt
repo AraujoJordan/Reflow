@@ -26,6 +26,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.io.IOException
 import org.jetbrains.compose.resources.stringResource
 
 data class PaginatedState<T>(
@@ -126,7 +127,9 @@ fun <T> ViewModel.reflowPaginated(
     initialPage: Page.Number = Page.Number(),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    maxRetries: Int = MAX_RETRIES,
+    retryDelay: Long = RETRY_DELAY,
+    shouldRetry: (Throwable) -> Boolean = { it is IOException },
     fetch: suspend (pageKey: Page.Number) -> List<T>,
 ): ReflowPaginated<T> = reflowPaginatedIn(
     scope = viewModelScope,
@@ -134,7 +137,9 @@ fun <T> ViewModel.reflowPaginated(
     initialPage = initialPage,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
-    fetchPolicy = fetchPolicy,
+    maxRetries = maxRetries,
+    retryDelay = retryDelay,
+    shouldRetry = shouldRetry,
     fetch = { fetch.invoke(it as Page.Number) },
 )
 
@@ -143,7 +148,9 @@ fun <T> ViewModel.reflowPaginated(
     initialPage: Page.Cursor,
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    maxRetries: Int = MAX_RETRIES,
+    retryDelay: Long = RETRY_DELAY,
+    shouldRetry: (Throwable) -> Boolean = { it is IOException },
     fetch: suspend (pageKey: Page) -> List<T>,
 ): ReflowPaginated<T> = reflowPaginatedIn(
     scope = viewModelScope,
@@ -151,7 +158,9 @@ fun <T> ViewModel.reflowPaginated(
     initialPage = initialPage,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
-    fetchPolicy = fetchPolicy,
+    maxRetries = maxRetries,
+    retryDelay = retryDelay,
+    shouldRetry = shouldRetry,
     fetch = { fetch.invoke(it as Page.Cursor) },
 )
 
@@ -162,7 +171,9 @@ fun <T> reflowPaginatedIn(
     initialPage: Page = Page.Number(0),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    fetchPolicy: FetchPolicy<List<T>> = FetchPolicy.NetworkOnly(),
+    maxRetries: Int = MAX_RETRIES,
+    retryDelay: Long = RETRY_DELAY,
+    shouldRetry: (Throwable) -> Boolean = { it is IOException },
     fetch: suspend (pageKey: Page) -> List<T>,
 ): ReflowPaginated<T> {
     val refreshTrigger = MutableSharedFlow<Unit>(
@@ -191,52 +202,9 @@ fun <T> reflowPaginatedIn(
                 val pageKey = currentPageKey
                     ?: return PaginatedState(accumulatedItems.toList(), false, false)
 
-                when (fetchPolicy) {
-                    is FetchPolicy.NetworkOnly -> {
-                        val pageItems = fetch(pageKey)
-                        accumulatedItems.addAll(pageItems)
-                        hasMorePages = pageItems.size >= pageKey.pageSize
-                    }
-
-                    is FetchPolicy.CacheOnly -> {
-                        val cachedItems = fetchPolicy.onRetrieve.first()
-                        accumulatedItems.clear()
-                        accumulatedItems.addAll(cachedItems)
-                        hasMorePages = false
-                    }
-
-                    is FetchPolicy.CacheAndNetwork -> {
-                        val cachedItems = try {
-                            fetchPolicy.onRetrieve.first()
-                        } catch (e: Exception) {
-                            null
-                        }
-
-                        if (cachedItems != null && accumulatedItems.isEmpty()) {
-                            accumulatedItems.addAll(cachedItems)
-                        }
-
-                        val pageItems = fetch(pageKey)
-
-                        if (cachedItems != null && accumulatedItems.size <= cachedItems.size) {
-                            val itemsToReplace = minOf(pageItems.size, accumulatedItems.size)
-                            for (i in 0 until itemsToReplace) {
-                                accumulatedItems[i] = pageItems[i]
-                            }
-                            for (i in itemsToReplace until pageItems.size) {
-                                accumulatedItems.add(pageItems[i])
-                            }
-                        } else {
-                            accumulatedItems.addAll(pageItems)
-                        }
-
-                        scope.launch(dispatcher) {
-                            fetchPolicy.onStore(accumulatedItems.toList())
-                        }
-
-                        hasMorePages = pageItems.size >= pageKey.pageSize
-                    }
-                }
+                val pageItems = fetch(pageKey)
+                accumulatedItems.addAll(pageItems)
+                hasMorePages = pageItems.size >= pageKey.pageSize
 
                 currentPageKey = if (hasMorePages) nextPage(pageKey) else null
 
@@ -254,8 +222,8 @@ fun <T> reflowPaginatedIn(
                     }
                 }
             }.retryWhen { cause, attempt ->
-                val canRetry = (attempt + 1) < fetchPolicy.maxRetries && fetchPolicy.shouldRetry(cause)
-                if (canRetry) delay(fetchPolicy.retryDelay)
+                val canRetry = (attempt + 1) < maxRetries && shouldRetry(cause)
+                if (canRetry) delay(retryDelay)
                 canRetry
             }.map { Resulting.content(it) }
                 .onStart {

@@ -100,9 +100,9 @@ class ReflowTest {
         val stateFlow = reflow.stateFlow
 
         // Then
-        repeat(Reflow.MAX_RETRIES) {
+        repeat(MAX_RETRIES) {
             assertTrue(stateFlow.first().isLoading)
-            advanceTimeBy(Reflow.RETRY_DELAY)
+            advanceTimeBy(RETRY_DELAY)
         }
         assertTrue(stateFlow.first().isFailure)
     }
@@ -176,19 +176,17 @@ class ReflowTest {
     }
 
     @Test
-    fun `should save cache when FetchPolicy is CacheAndNetwork`() = runTest {
+    fun `should handle cache-then-network pattern with flow merge`() = runTest {
         // Given
         var cacheValue: String? = null
         val reflow = reflowIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            fetchPolicy = FetchPolicy.CacheAndNetwork(
-                onStore = { cacheValue = it },
-                onRetrieve = { cacheValue },
-            ),
             fetchFlow = flow {
                 delay(500L)
-                emit("Fetched")
+                val fetched = "Fetched"
+                cacheValue = fetched
+                emit(fetched)
             }
         )
 
@@ -206,20 +204,19 @@ class ReflowTest {
     }
 
     @Test
-    fun `should retrieve from cache when FetchPolicy is CacheAndNetwork`() = runTest {
+    fun `should emit cached data first in cache-then-network pattern`() = runTest {
         // Given
-        val cacheValue = MutableStateFlow("Cached")
+        val cacheFlow = MutableStateFlow("Cached")
         val reflow = reflowIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            fetchPolicy = FetchPolicy.CacheAndNetwork(
-                onStore = { cacheValue.value = it },
-                onRetrieve = cacheValue,
-            ),
-            fetchFlow = flow {
-                delay(500L)
-                emit("Fetched")
-            }
+            fetchFlow = kotlinx.coroutines.flow.merge(
+                cacheFlow,
+                flow {
+                    delay(500L)
+                    emit("Fetched")
+                }
+            )
         )
 
         // When
@@ -235,6 +232,5 @@ class ReflowTest {
         result = stateFlow.first()
         assertTrue(result.isSuccess)
         assertEquals("Fetched", result.getOrNull())
-        assertEquals("Fetched", cacheValue.value)
     }
 }

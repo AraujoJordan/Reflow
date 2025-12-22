@@ -71,7 +71,6 @@ fun UserListScreen(viewModel: MyViewModel) {
 
 Reflow wraps your data fetching operations in a reactive Flow that automatically handles:
 - **Loading states** - Track when data is being fetched
-- **Flexible fetch policies** - Network-only, cache-only, or cache-then-network strategies
 - **Compose integration** - Direct integration with ViewModel and Compose state
 - **Error handling** - Automatic retry with configurable policies
 - **Pagination** - Built-in support for paginated lists with automatic load-more detection
@@ -86,7 +85,6 @@ Perfect for building robust Android, iOS, and JVM applications that need reliabl
 - 🔌 **ViewModel Integration** - Extension functions for seamless ViewModel usage
 - 🧩 **Compose Ready** - First-class support for Jetpack Compose with reactive state
 - ⚡ **Coroutine-Based** - Built on Kotlin Coroutines and Flow for efficient async operations
-- 📡 **Multiple Fetch Policies** - Choose between network-only, cache-only, or cache-and-network strategies
 - 📄 **Pagination Support** - Built-in pagination with automatic load-more and LazyColumn integration
 
 ## Installation
@@ -110,41 +108,6 @@ kotlin {
     }
 }
 ```
-
-### Fetch Policies
-
-Reflow supports three fetch policies to handle different caching scenarios:
-
-#### NetworkOnly (Default)
-
-Fetches data from the network every time:
-
-```kotlin
-class MyViewModel : ViewModel() {
-    val users = reflow {
-        api.fetchUsers()
-    }
-}
-```
-
-#### CacheAndNetwork
-
-Implements the cache-then-network pattern - returns cached data immediately, then updates with fresh network data:
-
-```kotlin
-class MyViewModel : ViewModel() {
-    val users = reflow(
-        fetchPolicy = FetchPolicy.CacheAndNetwork(
-            onStore = { users -> database.saveUsers(users) }, // Room, SQLDelight, etc
-            onRetrieve = database.getUsersFlow() // Same
-        )
-    ) {
-        api.fetchUsers()
-    }
-}
-```
-
-This pattern provides the best user experience by showing cached data instantly while fetching fresh data in the background.
 
 ### Refreshing Data
 
@@ -171,13 +134,11 @@ Configure retry behavior for your specific needs:
 
 ```kotlin
 val users = reflow(
-    fetchPolicy = FetchPolicy.NetworkOnly(
-        maxRetries = 5,
-        retryDelay = 3000L, // 3 seconds
-        shouldRetry = { exception ->
-            exception is MyCustomException
-        }
-    )
+    maxRetries = 5,
+    retryDelay = 3000L, // 3 seconds
+    shouldRetry = { exception ->
+        exception is IOException || exception is HttpException
+    }
 ) {
     api.fetchUsers()
 }
