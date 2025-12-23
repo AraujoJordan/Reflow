@@ -245,8 +245,7 @@ class ReflowPaginatedTest {
     fun `should load data from Disk cache for paginated reflow`() = runTest {
         // Given
         val cachedItems = listOf(TestData(1, "Cached 1"), TestData(2, "Cached 2"))
-        val dataStore = DatastoreCacheFactory.datastore
-        val diskCache = CacheSource.Disk("test_cache", kotlinx.serialization.serializer<List<TestData>>(), dataStore)
+        val diskCache = CacheSource.Disk("test_cache", kotlinx.serialization.serializer<List<TestData>>())
         diskCache.store(cachedItems)
 
         val reflow = reflowPaginatedIn(
@@ -265,7 +264,7 @@ class ReflowPaginatedTest {
 
         // Then
         // Wait for cached value
-        var result = stateFlow.first { it.isSuccess }
+        var result = stateFlow.first { it.isSuccess && it.getOrNull()?.items?.any { item -> item.name.contains("Cached") } == true }
         assertEquals(cachedItems, result.getOrNull()?.items)
 
         advanceTimeBy(501L)

@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -232,5 +233,56 @@ class ReflowTest {
         result = stateFlow.first()
         assertTrue(result.isSuccess)
         assertEquals("Fetched", result.getOrNull())
+    }
+
+    @Test
+    fun `should work after many refreshes even with infinite fetchFlow`() = runTest {
+        var fetches = 0
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            fetchFlow = flow {
+                fetches++
+                emit("Data $fetches")
+                delay(1000000)
+            }
+        )
+        val stateFlow = reflow.stateFlow
+        val job = launch { stateFlow.collect {} }
+
+        advanceTimeBy(1)
+        assertEquals(1, fetches)
+
+        reflow.refresh()
+        advanceTimeBy(1)
+        assertEquals(2, fetches)
+
+        reflow.refresh()
+        advanceTimeBy(1)
+        assertEquals(3, fetches, "Should have triggered a 3rd fetch")
+        job.cancel()
+    }
+
+    @Test
+    fun `should avoid redundant emissions when data is the same`() = runTest {
+        var emissions = 0
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            fetchFlow = flow {
+                delay(10)
+                emit("Data")
+                delay(10)
+                emit("Data")
+            }
+        )
+        val stateFlow = reflow.stateFlow
+        val job = launch { stateFlow.collect { emissions++ } }
+
+        advanceTimeBy(100)
+
+        // Initial Loading + Success("Data") = 2 emissions.
+        assertEquals(2, emissions)
+        job.cancel()
     }
 }

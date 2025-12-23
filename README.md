@@ -1,6 +1,7 @@
 # Reflow
 
-A Kotlin Multiplatform library that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. Built on top of Kotlin Flows and designed to integrate seamlessly with Jetpack Compose.
+A Kotlin Multiplatform Flow that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. 
+It is designed to integrate seamlessly with Jetpack Compose.
 
 ### How to use it:
 
@@ -16,11 +17,13 @@ you can also cache it in disk with:
 
 ```kotlin
 class MyViewModel : ViewModel() {
-    val uiState = reflow(cacheSource = CacheSource.Disk<UiState>()) {
+    val uiState = reflow(cacheSource = CacheSource.Disk()) {
         api.fetchData()
     }
 }
 ```
+
+Note: To cache in disk, it is required using Serializable classes.
 
 Reflow will automatically retry on common network failures and handle exceptions for you.
 
@@ -29,7 +32,7 @@ Then in your Compose UI:
 ```kotlin
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
-    ReflowBox(viewModel.uiState) { ui ->
+    ReflowContent(viewModel.uiState) { ui ->
         MyContent(ui)
     }
 }

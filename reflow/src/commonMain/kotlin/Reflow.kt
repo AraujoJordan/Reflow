@@ -1,5 +1,12 @@
 package io.github.araujojordan
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,17 +40,22 @@ class Reflow<T> internal constructor(
 }
 
 @Composable
-fun <T> ReflowBox(
+fun <T> ReflowContent(
     reflow: Reflow<T>,
+    transitionSpec: AnimatedContentTransitionScope<Resulting<T>>.() -> ContentTransform = {
+        fadeIn().togetherWith(fadeOut())
+    },
+    contentAlignment: Alignment = Alignment.Center,
+    label: String = "ReflowContent",
+    contentKey: (targetState: Resulting<T>) -> Any? = { it },
     modifier: Modifier = Modifier,
-    onLoading: @Composable () -> Unit = {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    onLoading: @Composable AnimatedContentScope.() -> Unit = {
+        Box(contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     },
-    onError: @Composable (Throwable, () -> Unit) -> Unit = { _, retry ->
+    onError: @Composable AnimatedContentScope.(Throwable, () -> Unit) -> Unit = { _, retry ->
         Column(
-            modifier = modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -53,14 +65,23 @@ fun <T> ReflowBox(
             }
         }
     },
-    content: @Composable (T) -> Unit,
-) = Box(modifier = modifier) {
+    content: @Composable AnimatedContentScope.(T) -> Unit,
+) {
     val state by reflow.stateFlow.collectAsState()
-    state.foldUi(
-        onLoading = { onLoading() },
-        onSuccess = { content(it) },
-        onFailure = { onError(it, reflow::refresh) }
-    )
+    AnimatedContent(
+        modifier = modifier,
+        transitionSpec = transitionSpec,
+        contentAlignment = contentAlignment,
+        label = label,
+        contentKey = contentKey,
+        targetState = state,
+    ) {
+        it.foldUi(
+            onLoading = { onLoading() },
+            onSuccess = { value -> content(value) },
+            onFailure = { throwable -> onError(throwable, reflow::refresh) }
+        )
+    }
 }
 
 fun <T> ViewModel.reflow(
@@ -72,20 +93,17 @@ fun <T> ViewModel.reflow(
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
     fetch: suspend () -> T,
-): Reflow<T> {
-    val reflowIn = reflowIn(
-        scope = viewModelScope,
-        dispatcher = dispatcher,
-        initial = initial,
-        shouldLoadingOnRefresh = shouldLoadingOnRefresh,
-        cacheSource = cacheSource,
-        maxRetries = maxRetries,
-        retryDelay = retryDelay,
-        shouldRetry = shouldRetry,
-        fetchFlow = suspend { fetch() }.asFlow(),
-    )
-    return reflowIn
-}
+): Reflow<T> = reflowIn(
+    scope = viewModelScope,
+    dispatcher = dispatcher,
+    initial = initial,
+    shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+    cacheSource = cacheSource,
+    maxRetries = maxRetries,
+    retryDelay = retryDelay,
+    shouldRetry = shouldRetry,
+    fetchFlow = flow { emit(fetch()) }
+)
 
 fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -128,17 +146,16 @@ fun <T> reflowIn(
 
     var isFirstEmission = true
 
-    val cached: Flow<Resulting<T>> = when (cacheSource) {
+    val cached = when (cacheSource) {
         is CacheSource.Disk<T> -> cacheSource.data.map { it?.let { Resulting.content<T>(it) } ?: Resulting.loading() }
         is CacheSource.Memory -> flowOf(Resulting.loading())
-    }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }
+    }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }.flowOn(dispatcher)
 
-    val fetch = fetchFlow
+    val fetched = fetchFlow
         .map {
-            (cacheSource as? CacheSource.Disk<T>)?.store(it)
+            scope.launch(Dispatchers.IO) { (cacheSource as? CacheSource.Disk<T>)?.store(it) }
             Resulting.content(it)
-        }
-        .retryWhen { cause, attempt ->
+        }.retryWhen { cause, attempt ->
             val canRetry = (attempt + 1) < maxRetries && shouldRetry(cause)
             if (canRetry) delay(timeMillis = retryDelay) else emit(value = Resulting.failure(cause))
             canRetry
@@ -151,12 +168,12 @@ fun <T> reflowIn(
             }
         }.catch {
             emit(value = Resulting.failure(it))
-        }
+        }.flowOn(dispatcher)
 
     return Reflow(
         refreshes = refreshes,
         stateFlow = refreshes
-            .flatMapLatest { merge(fetch, cached) }
+            .flatMapLatest { merge(fetched, cached) }
             .flowOn(dispatcher)
             .stateIn(scope, started = SharingStarted.Lazily, initialValue = initial),
     )

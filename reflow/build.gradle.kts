@@ -41,15 +41,19 @@ kotlin {
             implementation(libs.lifecycle.viewmodel)
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.kotlinx.io.core)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.ui)
             implementation(libs.compose.material)
             implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
+
             implementation(libs.datastore)
             implementation(libs.datastore.preferences.core)
             implementation(libs.protobuf.kotlin)
+
+            implementation(libs.kermit)
         }
 
         commonTest.dependencies {

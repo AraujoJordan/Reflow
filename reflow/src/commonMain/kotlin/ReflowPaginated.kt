@@ -204,29 +204,41 @@ fun <T> reflowPaginatedIn(
             var hasMorePages = true
 
             suspend fun fetchPage(): PaginatedState<T> {
-                val pageKey = currentPageKey
-                    ?: return PaginatedState(accumulatedItems.toList(), false, false)
+                val pageKey = currentPageKey ?: return PaginatedState(
+                    items = accumulatedItems,
+                    isLoadingMore = false,
+                    hasMorePages = false
+                )
 
                 val pageItems = fetch(pageKey)
                 accumulatedItems.addAll(pageItems)
-                (cacheSource as? CacheSource.Disk<List<T>>)?.store(accumulatedItems.toList())
+                scope.launch(dispatcher) { (cacheSource as? CacheSource.Disk<List<T>>)?.store(accumulatedItems) }
                 hasMorePages = pageItems.size >= pageKey.pageSize
-
                 currentPageKey = if (hasMorePages) nextPage(pageKey) else null
-
-                return PaginatedState(accumulatedItems.toList(), false, hasMorePages)
+                return PaginatedState(items = accumulatedItems, isLoadingMore = false, hasMorePages = hasMorePages)
             }
 
             val cached: Flow<Resulting<PaginatedState<T>>> = when (cacheSource) {
-                is CacheSource.Disk<List<T>> -> cacheSource.data.map {
+                is CacheSource.Disk<List<T>> -> cacheSource.data.onEach {
+                    it?.let { cachedItems ->
+                        mutex.withLock {
+                            if (accumulatedItems.isEmpty()) {
+                                accumulatedItems.addAll(cachedItems)
+                                if (currentPageKey is Page.Number) {
+                                    val nextValue = (it.size / (currentPageKey as Page.Number).pageSize)
+                                    currentPageKey = Page.Number(nextValue, (currentPageKey as Page.Number).pageSize)
+                                }
+                            }
+                        }
+                    }
+                }.map {
                     it?.let { Resulting.content(PaginatedState(it)) } ?: Resulting.loading()
                 }
                 is CacheSource.Memory -> flowOf(Resulting.loading())
-            }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }
+            }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }.flowOn(dispatcher)
 
             val fetchFlow = flow {
                 emit(fetchPage())
-
                 loadMoreTrigger.collect {
                     if (hasMorePages) {
                         mutex.withLock {
@@ -238,18 +250,20 @@ fun <T> reflowPaginatedIn(
                 val canRetry = (attempt + 1) < maxRetries && shouldRetry(cause)
                 if (canRetry) delay(retryDelay)
                 canRetry
-            }.map { Resulting.content(it) }
-                .onStart {
-                    if (isFirstEmission) {
-                        if (initial.isLoading) emit(Resulting.loading())
-                        isFirstEmission = false
-                    } else if (shouldLoadingOnRefresh) {
-                        emit(Resulting.loading())
-                    }
+            }.map {
+                Resulting.content(it)
+            }.onStart {
+                if (isFirstEmission) {
+                    if (initial.isLoading) emit(Resulting.loading())
+                } else if (shouldLoadingOnRefresh) {
+                    emit(Resulting.loading())
                 }
-                .catch { emit(Resulting.failure(it)) }
+                isFirstEmission = false
+            }.catch {
+                emit(Resulting.failure(it))
+            }.flowOn(dispatcher)
 
-            merge(fetchFlow, cached)
+            merge(fetchFlow, cached).flowOn(dispatcher)
         }.stateIn(
             scope = scope,
             started = SharingStarted.Lazily,

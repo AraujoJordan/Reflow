@@ -48,6 +48,13 @@ class Resulting<T> private constructor(internal var value: kotlin.Result<T>? = n
         }
     }
 
+    override fun equals(other: Any?) =  when {
+        isLoading && (other as? Resulting<T>)?.isLoading ?: false -> true
+        isSuccess && (other as? Resulting<T>)?.isSuccess ?: false -> getOrNull() == other.getOrNull()
+        isFailure && (other as? Resulting<T>)?.isFailure ?: false -> exceptionOrNull() == other.exceptionOrNull()
+        else -> false
+    }
+
     override fun toString(): String {
         return when {
             isLoading -> "Loading"
