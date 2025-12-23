@@ -3,7 +3,6 @@ package io.github.araujojordan
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -246,8 +245,7 @@ class ReflowPaginatedTest {
     fun `should load data from Disk cache for paginated reflow`() = runTest {
         // Given
         val cachedItems = listOf(TestData(1, "Cached 1"), TestData(2, "Cached 2"))
-        val cacheName = "test_paginated_cache_${kotlin.random.Random.nextInt()}"
-        val dataStore = createDatastore { "${cacheName}.preferences_pb" }
+        val dataStore = DatastoreCacheFactory.datastore
         val diskCache = CacheSource.Disk("test_cache", kotlinx.serialization.serializer<List<TestData>>(), dataStore)
         diskCache.store(cachedItems)
 

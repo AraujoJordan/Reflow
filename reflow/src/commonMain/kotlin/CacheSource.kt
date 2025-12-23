@@ -50,9 +50,8 @@ sealed interface CacheSource<T> {
 
         companion object {
             inline operator fun <reified T> invoke(
-                context: Any? = null,
-                name: String = T::class.simpleName.orEmpty(),
-                dataStore: DataStore<Preferences> = createDatastore(context)
+                name: String = T::class.qualifiedName.orEmpty(),
+                dataStore: DataStore<Preferences> = DatastoreCacheFactory.datastore
             ): Disk<T> = Disk(name, serializer<T>(), dataStore)
         }
     }
