@@ -3,12 +3,17 @@ package io.github.araujojordan
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToHexString
+import kotlinx.serialization.protobuf.ProtoBuf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -232,5 +237,68 @@ class ReflowTest {
         result = stateFlow.first()
         assertTrue(result.isSuccess)
         assertEquals("Fetched", result.getOrNull())
+    }
+
+    @Serializable
+    data class TestData(val id: Int, val name: String)
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `should load data from Disk cache`() = runTest {
+        // Given
+        val testData = TestData(1, "Cached Name")
+        val cacheName = "test_cache_load_${kotlin.random.Random.nextInt()}"
+        val dataStore = createDatastore { "${cacheName}.preferences_pb" }
+        val diskCache = CacheSource.Disk("test_cache", TestData.serializer(), dataStore)
+        diskCache.store(testData)
+
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            cacheSource = diskCache,
+            fetchFlow = flow {
+                delay(500L)
+                emit(TestData(1, "Fetched Name"))
+            }
+        )
+
+        // When
+        val stateFlow = reflow.stateFlow
+
+        // Then
+        // Wait for cached value
+        stateFlow.first { it.isSuccess }
+        assertEquals(testData, stateFlow.value.getOrNull())
+
+        advanceTimeBy(501L)
+        // Wait for fetched value
+        stateFlow.first { it.isSuccess && it.getOrNull()?.name == "Fetched Name" }
+        assertEquals("Fetched Name", stateFlow.value.getOrNull()?.name)
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `should save data to Disk cache on fetch`() = runTest {
+        // Given
+        val cacheName = "test_cache_${kotlin.random.Random.nextInt()}"
+        val dataStore = createDatastore { "${cacheName}.preferences_pb" }
+        val diskCache = CacheSource.Disk("test_cache", TestData.serializer(), dataStore)
+        val fetchedData = TestData(2, "Fetched from Network")
+
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            cacheSource = diskCache,
+            fetchFlow = flow {
+                delay(500L)
+                emit(fetchedData)
+            }
+        )
+
+        // When
+        reflow.stateFlow.first { it.isSuccess && it.getOrNull() == fetchedData }
+
+        // Then
+        assertEquals(fetchedData, diskCache.data.filterNotNull().first())
     }
 }

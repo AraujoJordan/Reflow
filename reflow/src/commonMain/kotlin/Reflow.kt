@@ -24,8 +24,13 @@ import kotlinx.coroutines.flow.*
 import kotlinx.io.IOException
 import org.jetbrains.compose.resources.stringResource
 
-const val RETRY_DELAY: Long = 2000L // Milliseconds
-const val MAX_RETRIES: Int = 3
+class Reflow<T> internal constructor(
+    private val refreshes: MutableSharedFlow<Unit>,
+    val stateFlow: StateFlow<Resulting<T>>,
+) {
+    val state @Composable get() = stateFlow.collectAsState()
+    fun refresh() = refreshes.tryEmit(value = Unit)
+}
 
 @Composable
 fun <T> ReflowBox(
@@ -58,18 +63,11 @@ fun <T> ReflowBox(
     )
 }
 
-class Reflow<T> internal constructor(
-    private val refreshes: MutableSharedFlow<Unit>,
-    val stateFlow: StateFlow<Resulting<T>>,
-) {
-    val state @Composable get() = stateFlow.collectAsState()
-    fun refresh() = refreshes.tryEmit(value = Unit)
-}
-
 fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<T> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -80,6 +78,7 @@ fun <T> ViewModel.reflow(
         dispatcher = dispatcher,
         initial = initial,
         shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+        cacheSource = cacheSource,
         maxRetries = maxRetries,
         retryDelay = retryDelay,
         shouldRetry = shouldRetry,
@@ -92,6 +91,7 @@ fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<T> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -101,6 +101,7 @@ fun <T> ViewModel.reflow(
     dispatcher = dispatcher,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+    cacheSource = cacheSource,
     maxRetries = maxRetries,
     retryDelay = retryDelay,
     shouldRetry = shouldRetry,
@@ -113,6 +114,7 @@ fun <T> reflowIn(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading<T>(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<T> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -125,14 +127,18 @@ fun <T> reflowIn(
     ).also { it.tryEmit(value = Unit) }
 
     var isFirstEmission = true
-    val state = refreshes.flatMapLatest {
-        flow {
-            emitAll(
-                fetchFlow
-                    .distinctUntilChanged()
-                    .map { Resulting.content(it) }
-            )
-        }.retryWhen { cause, attempt ->
+
+    val cached: Flow<Resulting<T>> = when (cacheSource) {
+        is CacheSource.Disk<T> -> cacheSource.data.map { it?.let { Resulting.content<T>(it) } ?: Resulting.loading() }
+        is CacheSource.Memory -> flowOf(Resulting.loading())
+    }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }
+
+    val fetch = fetchFlow
+        .map {
+            (cacheSource as? CacheSource.Disk<T>)?.store(it)
+            Resulting.content(it)
+        }
+        .retryWhen { cause, attempt ->
             val canRetry = (attempt + 1) < maxRetries && shouldRetry(cause)
             if (canRetry) delay(timeMillis = retryDelay) else emit(value = Resulting.failure(cause))
             canRetry
@@ -143,9 +149,19 @@ fun <T> reflowIn(
             } else if (shouldLoadingOnRefresh) {
                 emit(value = Resulting.loading())
             }
-        }.catch { emit(value = Resulting.failure(it)) }
-    }.stateIn(scope, started = SharingStarted.Lazily, initialValue = initial)
+        }.catch {
+            emit(value = Resulting.failure(it))
+        }
 
-    return Reflow(refreshes = refreshes, stateFlow = state)
+    return Reflow(
+        refreshes = refreshes,
+        stateFlow = refreshes
+            .flatMapLatest { merge(fetch, cached) }
+            .flowOn(dispatcher)
+            .stateIn(scope, started = SharingStarted.Lazily, initialValue = initial),
+    )
 }
+
+const val RETRY_DELAY: Long = 2_000L // Milliseconds
+const val MAX_RETRIES: Int = 3
 

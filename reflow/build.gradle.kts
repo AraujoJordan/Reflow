@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.vanniktech.mavenPublish)
     alias(libs.plugins.jetbrainsCompose)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.serialization)
 }
 
 group = "io.github.araujojordan"
@@ -46,6 +47,9 @@ kotlin {
             implementation(libs.compose.material)
             implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
+            implementation(libs.datastore)
+            implementation(libs.datastore.preferences.core)
+            implementation(libs.protobuf.kotlin)
         }
 
         commonTest.dependencies {
