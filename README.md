@@ -80,24 +80,13 @@ fun UserListScreen(viewModel: MyViewModel) {
 }
 ```
 
-## What is it?
-
-Reflow wraps your data fetching operations in a reactive Flow that automatically handles:
-- **Loading states** - Track when data is being fetched
-- **Compose integration** - Direct integration with ViewModel and Compose state
-- **Error handling** - Automatic retry with configurable policies
-- **Pagination** - Built-in support for paginated lists with automatic load-more detection
-
-Perfect for building robust Android, iOS, and JVM applications that need reliable data fetching with minimal boilerplate.
-
 ## Features
 
-- 🌐 **Multiplatform** - Works on Android, iOS, and JVM
-- 🎨 **Flexible Configuration** - Customize retry behavior, loading states, and error handling
-- 🔄 **Automatic Retry Logic** - Configurable retry attempts with custom delays
+- 🌐 **Kotlin Multiplatform** - Works on Android, iOS, and JVM
+- 🎨 **Flexible Configuration** - Customizable loading states, error handling and retry attempts
+- ✈️ **Offline-first Support** - Reflow can cache the fetched data on disk for offline-first apps support
 - 🔌 **ViewModel Integration** - Extension functions for seamless ViewModel usage
-- 🧩 **Compose Ready** - First-class support for Jetpack Compose with reactive state
-- ⚡ **Coroutine-Based** - Built on Kotlin Coroutines and Flow for efficient async operations
+- 🧩 **Compose Ready** - First-class support for Jetpack Compose with animated reactive state
 - 📄 **Pagination Support** - Built-in pagination with automatic load-more and LazyColumn integration
 
 ## Installation
