@@ -47,4 +47,13 @@ class Resulting<T> private constructor(internal var value: kotlin.Result<T>? = n
             else -> Resulting(Result.failure(this.exceptionOrNull() ?: other.exceptionOrNull()!!))
         }
     }
+
+    override fun toString(): String {
+        return when {
+            isLoading -> "Loading"
+            isSuccess -> "Success(${getOrNull()})"
+            isFailure -> "Failure(${exceptionOrNull()?.message})"
+            else -> "Unknown"
+        }
+    }
 }

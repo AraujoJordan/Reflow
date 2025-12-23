@@ -3,10 +3,13 @@ package io.github.araujojordan
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -235,5 +238,43 @@ class ReflowPaginatedTest {
         assertEquals(4, result.getOrNull()?.items?.size)
     }
 
+    @Serializable
+    data class TestData(val id: Int, val name: String)
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `should load data from Disk cache for paginated reflow`() = runTest {
+        // Given
+        val cachedItems = listOf(TestData(1, "Cached 1"), TestData(2, "Cached 2"))
+        val cacheName = "test_paginated_cache_${kotlin.random.Random.nextInt()}"
+        val dataStore = createDatastore { "${cacheName}.preferences_pb" }
+        val diskCache = CacheSource.Disk("test_cache", kotlinx.serialization.serializer<List<TestData>>(), dataStore)
+        diskCache.store(cachedItems)
+
+        val reflow = reflowPaginatedIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            cacheSource = diskCache,
+            initialPage = Page.Number(value = 1, pageSize = 2),
+            fetch = {
+                delay(500L)
+                listOf(TestData(3, "Fetched 3"), TestData(4, "Fetched 4"))
+            }
+        )
+
+        // When
+        val stateFlow = reflow.stateFlow
+
+        // Then
+        // Wait for cached value
+        var result = stateFlow.first { it.isSuccess }
+        assertEquals(cachedItems, result.getOrNull()?.items)
+
+        advanceTimeBy(501L)
+        
+        result = stateFlow.first { it.isSuccess && it.getOrNull()?.items?.any { item -> item.name.contains("Fetched") } == true }
+        assertEquals(2, result.getOrNull()?.items?.size)
+        assertEquals("Fetched 3", result.getOrNull()?.items?.get(0)?.name)
+    }
 
 }

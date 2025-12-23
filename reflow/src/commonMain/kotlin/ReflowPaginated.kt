@@ -127,6 +127,7 @@ fun <T> ViewModel.reflowPaginated(
     initialPage: Page.Number = Page.Number(),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<List<T>> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -137,6 +138,7 @@ fun <T> ViewModel.reflowPaginated(
     initialPage = initialPage,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+    cacheSource = cacheSource,
     maxRetries = maxRetries,
     retryDelay = retryDelay,
     shouldRetry = shouldRetry,
@@ -148,6 +150,7 @@ fun <T> ViewModel.reflowPaginated(
     initialPage: Page.Cursor,
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<List<T>> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -158,6 +161,7 @@ fun <T> ViewModel.reflowPaginated(
     initialPage = initialPage,
     initial = initial,
     shouldLoadingOnRefresh = shouldLoadingOnRefresh,
+    cacheSource = cacheSource,
     maxRetries = maxRetries,
     retryDelay = retryDelay,
     shouldRetry = shouldRetry,
@@ -171,6 +175,7 @@ fun <T> reflowPaginatedIn(
     initialPage: Page = Page.Number(0),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
+    cacheSource: CacheSource<List<T>> = CacheSource.Memory(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -204,6 +209,7 @@ fun <T> reflowPaginatedIn(
 
                 val pageItems = fetch(pageKey)
                 accumulatedItems.addAll(pageItems)
+                (cacheSource as? CacheSource.Disk<List<T>>)?.store(accumulatedItems.toList())
                 hasMorePages = pageItems.size >= pageKey.pageSize
 
                 currentPageKey = if (hasMorePages) nextPage(pageKey) else null
@@ -211,7 +217,14 @@ fun <T> reflowPaginatedIn(
                 return PaginatedState(accumulatedItems.toList(), false, hasMorePages)
             }
 
-            flow {
+            val cached: Flow<Resulting<PaginatedState<T>>> = when (cacheSource) {
+                is CacheSource.Disk<List<T>> -> cacheSource.data.map {
+                    it?.let { Resulting.content(PaginatedState(it)) } ?: Resulting.loading()
+                }
+                is CacheSource.Memory -> flowOf(Resulting.loading())
+            }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }
+
+            val fetchFlow = flow {
                 emit(fetchPage())
 
                 loadMoreTrigger.collect {
@@ -235,6 +248,8 @@ fun <T> reflowPaginatedIn(
                     }
                 }
                 .catch { emit(Resulting.failure(it)) }
+
+            merge(fetchFlow, cached)
         }.stateIn(
             scope = scope,
             started = SharingStarted.Lazily,
