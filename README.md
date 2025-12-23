@@ -6,8 +6,18 @@ A Kotlin Multiplatform library that simplifies data fetching with automatic retr
 
 ```kotlin
 class MyViewModel : ViewModel() {
-    val uiState = reflow { 
+    val uiState = reflow {
         api.fetchData() 
+    }
+}
+```
+
+you can also cache it in disk with:
+
+```kotlin
+class MyViewModel : ViewModel() {
+    val uiState = reflow(cacheSource = CacheSource.Disk<UiState>()) {
+        api.fetchData()
     }
 }
 ```
