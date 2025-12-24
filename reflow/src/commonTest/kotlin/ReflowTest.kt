@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import kotlin.test.Test
@@ -348,6 +349,8 @@ class ReflowTest {
         val result = stateFlow.first { it.isSuccess }
         assertTrue(result.isSuccess)
         assertEquals("Fetched to store", result.getOrNull())
+
+        advanceUntilIdle() // Wait launch call to store it
 
         // Verify it was stored
         val cachedValue = memoryCache.data.first()

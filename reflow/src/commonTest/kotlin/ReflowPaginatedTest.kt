@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.IOException
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -364,6 +365,8 @@ class ReflowPaginatedTest {
         // Then
         val result = stateFlow.first { it.isSuccess && it.getOrNull()?.items?.any { it.contains("Fetched") } == true }
         assertEquals(listOf("Fetched 1", "Fetched 2"), result.getOrNull()?.items)
+
+        advanceUntilIdle()
 
         // Verify it was stored
         val cachedValue = memoryCache.data.first()
