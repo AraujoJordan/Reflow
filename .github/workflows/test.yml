@@ -22,8 +22,5 @@ jobs:
           distribution: 'microsoft'
           java-version: 21.0.2
 
-      - name: Set up Gradle
-        uses: gradle/actions@v3
-
       - name: Run Tests
         run: ./gradlew :reflow:cleanJvmTest :reflow:jvmTest
