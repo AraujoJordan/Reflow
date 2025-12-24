@@ -96,7 +96,7 @@ For Android-only projects, add the following dependency to your app `build.gradl
 
 ```kotlin
 dependencies {
-    implementation("io.github.araujojordan:reflow:0.1.1")
+    implementation("io.github.araujojordan:reflow:0.2.0")
 }
 ```
 
@@ -106,7 +106,7 @@ For Kotlin Multiplatform projects:
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.araujojordan:reflow:0.1.1")
+            implementation("io.github.araujojordan:reflow:0.2.0")
         }
     }
 }
