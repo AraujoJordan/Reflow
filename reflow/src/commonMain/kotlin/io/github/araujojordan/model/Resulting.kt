@@ -1,4 +1,4 @@
-package io.github.araujojordan
+package io.github.araujojordan.model
 
 import androidx.compose.runtime.Composable
 
@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
  * Represent a LCE (Loading, Content or Error) values
  * it uses [Kotlin.Result] to represent the Content/Error cases (success/failure)
  */
-class Resulting<T> private constructor(internal var value: kotlin.Result<T>? = null) {
+class Resulting<T> private constructor(internal var value: Result<T>? = null) {
     companion object {
         fun <T> content(content: T): Resulting<T> = Resulting(Result.success(content))
         fun <T> loading(): Resulting<T> = Resulting()
@@ -27,7 +27,8 @@ class Resulting<T> private constructor(internal var value: kotlin.Result<T>? = n
         onFailure: (Throwable) -> R
     ): R = value?.fold(onSuccess, onFailure) ?: onLoading()
 
-    @Composable fun <R> foldUi(
+    @Composable
+    fun <R> foldUi(
         onLoading: @Composable () -> R,
         onSuccess: @Composable (T) -> R,
         onFailure: @Composable (Throwable) -> R

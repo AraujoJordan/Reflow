@@ -1,4 +1,5 @@
 # Reflow
+[![Maven Central](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml) [![Tests](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml)  
 
 A Kotlin Multiplatform Flow that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. 
 It is designed to integrate seamlessly with Jetpack Compose.
@@ -13,11 +14,11 @@ class MyViewModel : ViewModel() {
 }
 ```
 
-you can also cache it in disk with:
+you can also cache it with:
 
 ```kotlin
 class MyViewModel : ViewModel() {
-    val uiState = reflow(cacheSource = CacheSource.Disk()) {
+    val uiState = reflow(cacheSource = CacheSource.Disk()) { // Or CacheSource.Memory() for a LRU cache
         api.fetchData()
     }
 }
@@ -83,7 +84,7 @@ fun UserListScreen(viewModel: MyViewModel) {
 ## Features
 
 - 🌐 **Kotlin Multiplatform** - Works on Android, iOS, and JVM
-- 🎨 **Flexible Configuration** - Customizable loading states, error handling and retry attempts
+- 🎨 **Flexible Configuration** - Customizable loading states, error handling, and retry attempts
 - ✈️ **Offline-first Support** - Reflow can cache the fetched data on disk for offline-first apps support
 - 🔌 **ViewModel Integration** - Extension functions for seamless ViewModel usage
 - 🧩 **Compose Ready** - First-class support for Jetpack Compose with animated reactive state

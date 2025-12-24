@@ -54,6 +54,7 @@ kotlin {
             implementation(libs.protobuf.kotlin)
 
             implementation(libs.kermit)
+            implementation(libs.androidxCollection)
         }
 
         commonTest.dependencies {

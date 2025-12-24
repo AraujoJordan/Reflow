@@ -1,10 +1,10 @@
-package io.github.araujojordan
+package io.github.araujojordan.cache
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.io.files.SystemTemporaryDirectory
 import okio.Path.Companion.toPath
 
-object ReflowCacheFactory {
+internal object ReflowDatastore {
     val datastore = PreferenceDataStoreFactory.createWithPath(
         produceFile = {
             val tempDirPath = SystemTemporaryDirectory.toString().toPath()

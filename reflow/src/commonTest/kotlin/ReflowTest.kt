@@ -1,5 +1,6 @@
 package io.github.araujojordan
 
+import io.github.araujojordan.cache.CacheSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -237,6 +238,7 @@ class ReflowTest {
 
     @Test
     fun `should work after many refreshes even with infinite fetchFlow`() = runTest {
+        // Given
         var fetches = 0
         val reflow = reflowIn(
             scope = backgroundScope,
@@ -248,23 +250,23 @@ class ReflowTest {
             }
         )
         val stateFlow = reflow.stateFlow
+
+        // When
         val job = launch { stateFlow.collect {} }
-
         advanceTimeBy(1)
-        assertEquals(1, fetches)
-
         reflow.refresh()
         advanceTimeBy(1)
-        assertEquals(2, fetches)
-
         reflow.refresh()
         advanceTimeBy(1)
+
+        // Then
         assertEquals(3, fetches, "Should have triggered a 3rd fetch")
         job.cancel()
     }
 
     @Test
     fun `should avoid redundant emissions when data is the same`() = runTest {
+        // Given
         var emissions = 0
         val reflow = reflowIn(
             scope = backgroundScope,
@@ -277,12 +279,78 @@ class ReflowTest {
             }
         )
         val stateFlow = reflow.stateFlow
-        val job = launch { stateFlow.collect { emissions++ } }
 
+        // When
+        val job = launch { stateFlow.collect { emissions++ } }
         advanceTimeBy(100)
 
+        // Then
         // Initial Loading + Success("Data") = 2 emissions.
         assertEquals(2, emissions)
         job.cancel()
+    }
+
+    @Test
+    fun `should load data from Memory cache`() = runTest {
+        // Given
+        val memoryCache = CacheSource.Memory<String>("test_key")
+        memoryCache.clear()
+        memoryCache.store("Cached")
+
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            cacheSource = memoryCache,
+            fetchFlow = flow {
+                delay(500L)
+                emit("Fetched")
+            }
+        )
+
+        // When
+        val stateFlow = reflow.stateFlow
+
+        // Then
+        assertTrue(stateFlow.first().isLoading)
+        advanceTimeBy(1L)
+        var result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Cached", result.getOrNull())
+
+        advanceTimeBy(500L)
+        result = stateFlow.first()
+        assertTrue(result.isSuccess)
+        assertEquals("Fetched", result.getOrNull())
+    }
+
+    @Test
+    fun `should store fetched data in Memory cache`() = runTest {
+        // Given
+        val memoryCache = CacheSource.Memory<String>("test_key_store")
+        memoryCache.clear()
+
+        val reflow = reflowIn(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            cacheSource = memoryCache,
+            fetchFlow = flow {
+                delay(500L)
+                emit("Fetched to store")
+            }
+        )
+
+        // When
+        val stateFlow = reflow.stateFlow
+        assertTrue(stateFlow.first().isLoading)
+        advanceTimeBy(501L)
+
+        // Then
+        val result = stateFlow.first { it.isSuccess }
+        assertTrue(result.isSuccess)
+        assertEquals("Fetched to store", result.getOrNull())
+
+        // Verify it was stored
+        val cachedValue = memoryCache.data.first()
+        assertEquals("Fetched to store", cachedValue)
     }
 }

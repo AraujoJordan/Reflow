@@ -10,7 +10,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
@@ -22,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.araujojordan.cache.CacheSource
+import io.github.araujojordan.model.Resulting
 import io.github.araujojordan.reflow.generated.resources.Res
 import io.github.araujojordan.reflow.generated.resources.generic_error
 import io.github.araujojordan.reflow.generated.resources.retry
@@ -88,7 +89,7 @@ fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    cacheSource: CacheSource<T> = CacheSource.Memory(),
+    cacheSource: CacheSource<T> = CacheSource.None(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -109,7 +110,7 @@ fun <T> ViewModel.reflow(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    cacheSource: CacheSource<T> = CacheSource.Memory(),
+    cacheSource: CacheSource<T> = CacheSource.None(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -132,7 +133,7 @@ fun <T> reflowIn(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading<T>(),
     shouldLoadingOnRefresh: Boolean = true,
-    cacheSource: CacheSource<T> = CacheSource.Memory(),
+    cacheSource: CacheSource<T> = CacheSource.None(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -147,13 +148,16 @@ fun <T> reflowIn(
     var isFirstEmission = true
 
     val cached = when (cacheSource) {
-        is CacheSource.Disk<T> -> cacheSource.data.map { it?.let { Resulting.content<T>(it) } ?: Resulting.loading() }
-        is CacheSource.Memory -> flowOf(Resulting.loading())
+        is CacheSource.Store<T> -> cacheSource.data.map { it?.let { Resulting.content<T>(it) } ?: Resulting.loading() }
+        is CacheSource.None -> flowOf(Resulting.loading())
     }.filter { !(it.isLoading && !isFirstEmission && !shouldLoadingOnRefresh) }.flowOn(dispatcher)
 
     val fetched = fetchFlow
         .map {
-            scope.launch(Dispatchers.IO) { (cacheSource as? CacheSource.Disk<T>)?.store(it) }
+            when (cacheSource) {
+                is CacheSource.Store<T> -> scope.launch(Dispatchers.IO) { cacheSource.store(it) }
+                is CacheSource.None -> {}
+            }
             Resulting.content(it)
         }.retryWhen { cause, attempt ->
             val canRetry = (attempt + 1) < maxRetries && shouldRetry(cause)
