@@ -51,7 +51,7 @@ Add the dependency to your **module** `build.gradle.kts`:
 ### For Android-only projects:
 ```kotlin
 dependencies {
-    implementation("io.github.araujojordan:reflow:0.2.0")
+    implementation("io.github.araujojordan:reflow:0.2.1")
 }
 ```
 
@@ -60,13 +60,13 @@ dependencies {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.araujojordan:reflow:0.2.0")
+            implementation("io.github.araujojordan:reflow:0.2.1")
         }
     }
 }
 ```
 
-> **Note:** If you plan to use `CacheSource.Disk()`, you must also apply the [Kotlin Serialization plugin](https://kotlinlang.org/docs/serialization.html#libraries) in your project.
+> **Note:** If you plan to use `CacheSource.Disk()`, you must also apply the `@Serializable` from [Kotlin Serialization](https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json) in the class that you want to cache.
 
 ## Pagination
 
