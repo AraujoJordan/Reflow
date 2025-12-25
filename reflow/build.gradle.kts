@@ -29,7 +29,7 @@ kotlin {
         compilations.configureEach {
             compileTaskProvider.configure{
                 compilerOptions {
-                    jvmTarget.set(JvmTarget.JVM_24)
+                    jvmTarget.set(JvmTarget.JVM_17)
                 }
             }
         }
