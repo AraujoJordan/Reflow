@@ -35,6 +35,10 @@ sealed interface CacheSource<T> {
      * or data that is not critical to the application's functionality.
      */
     class Memory<T : Any>(val key: String) : Store<T> {
+        companion object {
+            inline operator fun <reified T : Any> invoke() = Memory<T>(T::class.qualifiedName.orEmpty())
+        }
+
         override val data: Flow<T?> = ReflowLru.getAsFlow(key)
         override suspend fun store(value: T) = ReflowLru.put(value, key)
         fun updateCacheCapacity(capacity: Int) = ReflowLru.updateCacheCapacity(capacity)
