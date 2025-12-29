@@ -63,7 +63,7 @@ class RexecuteTest {
     @Test
     fun `rexecuteIn should schedule retry on retryable error`() = runTest {
         // Given
-        Rexecute.queue.clear()
+        Rexecute.clear()
         val testDispatcher = StandardTestDispatcher(testScheduler)
         val flow = rexecuteIn<String>(
             key = "testRetry",
@@ -81,18 +81,18 @@ class RexecuteTest {
         // Then
         assertEquals(1, results.size)
         assertTrue(results[0].isLoading)
-        assertEquals(1, Rexecute.queue.size)
-        assertEquals("testRetry", Rexecute.queue.first().key)
+        assertEquals(1, Rexecute.activeJobCount())
+        assertEquals("testRetry", Rexecute.peekKey())
         job.cancel()
     }
 
     @Test
     fun `rexecuteIn should replace existing job with same key in queue`() = runTest {
         // Given
-        Rexecute.queue.clear()
+        Rexecute.clear()
         val testDispatcher = StandardTestDispatcher(testScheduler)
-        Rexecute.queue.add(RexecuteJob("testReplace", 0, {true}, {}, {"old"}))
-        assertEquals(1, Rexecute.queue.size)
+        Rexecute.submitJob(RexecuteJob("testReplace", 0, {true}, {}, {"old"}))
+        assertEquals(1, Rexecute.activeJobCount())
 
         // When
         val flow = rexecuteIn<String>(
@@ -106,8 +106,8 @@ class RexecuteTest {
         advanceUntilIdle()
 
         // Then
-        assertEquals(1, Rexecute.queue.size)
-        assertEquals("testReplace", Rexecute.queue.first().key)
+        assertEquals(1, Rexecute.activeJobCount())
+        assertEquals("testReplace", Rexecute.peekKey())
         job.cancel()
     }
 
