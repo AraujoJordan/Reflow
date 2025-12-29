@@ -51,7 +51,7 @@ Add the dependency to your **module** `build.gradle.kts`:
 ### For Android-only projects:
 ```kotlin
 dependencies {
-    implementation("io.github.araujojordan:reflow:0.2.2")
+    implementation("io.github.araujojordan:reflow:0.3.0")
 }
 ```
 
@@ -60,7 +60,7 @@ dependencies {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.araujojordan:reflow:0.2.2")
+            implementation("io.github.araujojordan:reflow:0.3.0")
         }
     }
 }
