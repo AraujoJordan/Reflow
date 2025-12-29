@@ -26,7 +26,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 10),
+            initialPage = Page.Number(number = 1, pageSize = 10),
         ) {
             delay(500L)
             listOf("Item 1", "Item 2")
@@ -45,7 +45,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 10),
+            initialPage = Page.Number(number = 1, pageSize = 10),
         ) {
             delay(500L)
             listOf("Item 1", "Item 2")
@@ -68,7 +68,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn<String>(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 10),
+            initialPage = Page.Number(number = 1, pageSize = 10),
         ) {
             delay(500L)
             error("Something went wrong")
@@ -94,7 +94,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn<String>(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 10),
+            initialPage = Page.Number(number = 1, pageSize = 10),
         ) {
             throw IOException("Bad network")
         }
@@ -115,11 +115,11 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
         ) { pageKey ->
             delay(100L)
             pagesFetched++
-            val page = (pageKey as Page.Number).value
+            val page = (pageKey as Page.Number).number
             listOf("Page $page Item 1", "Page $page Item 2")
         }
 
@@ -150,7 +150,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 10),
+            initialPage = Page.Number(number = 1, pageSize = 10),
         ) {
             delay(100L)
             listOf("Item 1", "Item 2")
@@ -174,7 +174,7 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
         ) {
             delay(100L)
             listOf("Item 1", "Item 2")
@@ -199,12 +199,12 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
             shouldLoadingOnRefresh = true,
         ) { pageKey ->
             delay(100L)
             pagesFetched++
-            val page = (pageKey as Page.Number).value
+            val page = (pageKey as Page.Number).number
             listOf("Fetch $pagesFetched Page $page Item 1", "Fetch $pagesFetched Page $page Item 2")
         }
 
@@ -242,10 +242,10 @@ class ReflowPaginatedTest {
         val reflow = reflowPaginatedIn(
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
         ) { pageKey ->
             delay(100L)
-            val page = (pageKey as Page.Number).value
+            val page = (pageKey as Page.Number).number
             listOf("Page $page Item 1", "Page $page Item 2")
         }
 
@@ -282,7 +282,7 @@ class ReflowPaginatedTest {
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
             cacheSource = diskCache,
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
             fetch = {
                 delay(500L)
                 listOf(TestData(3, "Fetched 3"), TestData(4, "Fetched 4"))
@@ -318,7 +318,7 @@ class ReflowPaginatedTest {
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
             cacheSource = memoryCache,
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
             fetch = {
                 delay(500L)
                 listOf("Fetched 3", "Fetched 4")
@@ -351,7 +351,7 @@ class ReflowPaginatedTest {
             scope = backgroundScope,
             dispatcher = StandardTestDispatcher(testScheduler),
             cacheSource = memoryCache,
-            initialPage = Page.Number(value = 1, pageSize = 2),
+            initialPage = Page.Number(number = 1, pageSize = 2),
             fetch = {
                 delay(500L)
                 listOf("Fetched 1", "Fetched 2")

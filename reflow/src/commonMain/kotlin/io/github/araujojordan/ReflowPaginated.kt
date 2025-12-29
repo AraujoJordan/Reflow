@@ -38,7 +38,7 @@ data class PaginatedState<T>(
 )
 
 sealed class Page(open val pageSize: Int = 10) {
-    data class Number(val value: Int = 0, override val pageSize: Int = 10) : Page(pageSize)
+    data class Number(val number: Int = 0, override val pageSize: Int = 10) : Page(pageSize)
     data class Cursor(val value: String, override val pageSize: Int = 10) : Page(pageSize)
 }
 
@@ -285,7 +285,7 @@ fun <T> reflowPaginatedIn(
 
 private fun nextPage(current: Page): Page {
     return when (current) {
-        is Page.Number -> Page.Number(current.value + 1)
+        is Page.Number -> Page.Number(current.number + 1)
         is Page.Cursor -> current
     }
 }

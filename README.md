@@ -74,8 +74,8 @@ Reflow provides a streamlined way to handle paginated data:
 
 ```kotlin
 class MyViewModel : ViewModel() {
-    val users = reflowPaginated { page ->
-        api.fetchUsers(page = page.value, size = page.pageSize)
+    val list = reflowPaginated { page ->
+        api.fetchList(page = page.number, size = page.pageSize)
     }
 }
 ```
@@ -115,7 +115,7 @@ Example with Disk caching:
 @Serializable
 data class User(val id: Int, val name: String)
 
-val uiState = reflow(cacheSource = CacheSource.Disk<User>("user_cache")) {
+val userName = reflow(Disk("user_data")) {
     api.fetchUser()
 }
 ```
@@ -125,7 +125,7 @@ val uiState = reflow(cacheSource = CacheSource.Disk<User>("user_cache")) {
 ### Custom Retry Configuration
 
 ```kotlin
-val users = reflow(
+val data = reflow(
     cacheSource = CacheSource.None(), // default
     dispatcher = Dispatchers.IO, // default
     initial = Resulting.loading(), // default
@@ -134,7 +134,7 @@ val users = reflow(
     retryDelay = 2_000L, // default value
     shouldRetry = { it is HttpException },
 ) {
-    api.fetchUsers()
+    api.fetchData()
 }
 ```
 
