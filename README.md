@@ -126,11 +126,13 @@ val uiState = reflow(cacheSource = CacheSource.Disk<User>("user_cache")) {
 
 ```kotlin
 val users = reflow(
-    maxRetries = 5,
-    retryDelay = 3000L, // 3 seconds
-    shouldRetry = { exception ->
-        exception is IOException || exception is HttpException
-    }
+    cacheSource = CacheSource.None(), // default
+    dispatcher = Dispatchers.IO, // default
+    initial = Resulting.loading(), // default
+    shouldLoadingOnRefresh = true, // default
+    maxRetries = 3, // default value, 0 to disable
+    retryDelay = 2_000L, // default value
+    shouldRetry = { it is HttpException },
 ) {
     api.fetchUsers()
 }
@@ -144,43 +146,34 @@ Trigger a manual refresh (e.g., from a `SwipeRefresh`):
 viewModel.uiState.refresh()
 ```
 
-By default, refreshing shows a loading state. You can disable this for a smoother user experience:
+## Rexecute
+
+For tasks like a RestFull Post or a GraphQL Mutation you can use `rexecute`:
 
 ```kotlin
-val users = reflow(shouldLoadingOnRefresh = false) {
-    api.fetchUsers()
-}
-```
-
-### Initial State
-
-Customize the initial state (e.g., start with empty data instead of loading):
-
-```kotlin
-val data = reflow(
-    initial = Resulting.success(yourDefaultValue) 
-) {
-    api.fetchData()
-}
-```
-
-### Custom Scope (reflowIn)
-
-For use outside of `ViewModel`, use `reflowIn`:
-
-```kotlin
-class MyRepository {
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+class MyViewModel : ViewModel() {
     
-    val users = reflowIn(
-        scope = scope,
-        fetchFlow = flow {
-            val data = api.fetchData()
-            emit(data)
-        }
-    )
+    val toggleState = reflow(Disk("user_profile_notification")) {
+        api.getUserNotificationState() // Returns a Boolean
+    }
+    
+    fun onToggleChange(toggle: Boolean) = rexecute(key = "user_profile_notification") { 
+        api.toggleUserNotification(toggle) // Returns a Boolean 
+    }
 }
 ```
+
+- Rexecute will automatically retry failed tasks (due to network issues)
+
+> **Note:** Passing the same key will automatically reuse the `api.toggleUserNotification()` task result on `toggleState`.
+This will work on different screens/VMs without the need to pass the result manually.
+
+### Key Features of Rexecute:
+
+- **Global Retry Queue**: Managed independently of UI components.
+- **Automatic Caching**: Results are automatically cached in an in-memory LRU cache for `reflow` reusal.
+- **Deduplication**: Multiple calls queue with the same key will only execute the last.
+- **Compose Ready**: Returns a `Flow<Resulting<T>>` that can be easily observed in your UI for loading and error handling.
 
 ## License
 

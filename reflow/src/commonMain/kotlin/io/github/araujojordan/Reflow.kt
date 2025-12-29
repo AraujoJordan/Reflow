@@ -86,10 +86,10 @@ fun <T> ReflowContent(
 }
 
 fun <T> ViewModel.reflow(
+    cacheSource: CacheSource<T> = CacheSource.None(),
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    cacheSource: CacheSource<T> = CacheSource.None(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -107,10 +107,10 @@ fun <T> ViewModel.reflow(
 )
 
 fun <T> ViewModel.reflow(
+    cacheSource: CacheSource<T> = CacheSource.None(),
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
-    cacheSource: CacheSource<T> = CacheSource.None(),
     maxRetries: Int = MAX_RETRIES,
     retryDelay: Long = RETRY_DELAY,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
