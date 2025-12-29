@@ -100,13 +100,14 @@ fun UserListScreen(viewModel: MyViewModel) {
 
 Reflow supports multiple caching strategies through the `CacheSource` parameter:
 
-| Strategy | Description                            | Requirement                                                  |
-| :--- |:---------------------------------------|:-------------------------------------------------------------|
-| `CacheSource.None()` | No caching (**Default**)                          | None                                                         |
-| `CacheSource.Memory(key)` | In-memory LRU cache.                   | A unique `String` key                                        |
-| `CacheSource.Disk(key)` | Persistent disk cache using DataStore. | A unique `String` key and the class must be `@Serializable`  |
+| Strategy | Description                            | Requirement                                                            |
+| :--- |:---------------------------------------|:-----------------------------------------------------------------------|
+| `CacheSource.None()` | No caching (**Default**)                          | None                                                                   |
+| `CacheSource.Memory(key)` | In-memory LRU cache.                   |  A unique `String` key (optional)                                      |
+| `CacheSource.Disk(key)` | Persistent disk cache using DataStore. | A unique `String` key (optional) and the class must be `@Serializable` |
 
-Note that if no key is provided on `Memory` or `Disk`, it will use `T::class.qualifiedName` as key.
+Note that if no key is provided on `Memory` or `Disk`, it will use `T::class.qualifiedName` as key and show a warning.
+Not using an unique key will result in wrong behavior when caching/retrieving the same types of objects in different places.
 
 Example with Disk caching:
 

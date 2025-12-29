@@ -9,7 +9,7 @@ import kotlinx.serialization.*
 import kotlinx.serialization.protobuf.ProtoBuf
 
 /**
- * Defines the persistence strategy for cached data within a [Reflow] or [ReflowPaginated] block.
+ * Defines the persistence strategy for cached data within a [io.github.araujojordan.Reflow] or [io.github.araujojordan.ReflowPaginated] block.
  */
 sealed interface CacheSource<T> {
 
@@ -36,6 +36,7 @@ sealed interface CacheSource<T> {
      */
     class Memory<T : Any>(val key: String) : Store<T> {
         companion object {
+            @UseMemoryCacheWithoutKey
             inline operator fun <reified T : Any> invoke() = Memory<T>(T::class.qualifiedName.orEmpty())
         }
 
@@ -58,9 +59,12 @@ sealed interface CacheSource<T> {
         private val serializer: KSerializer<T>,
     ) : Store<T> {
         companion object {
-            inline operator fun <reified T : Any> invoke(
-                key: String = T::class.qualifiedName.orEmpty(),
-            ): Store<T> {
+            @UseMemoryCacheWithoutKey
+            inline operator fun <reified T : Any> invoke(): Store<T> {
+                return Disk(key = T::class.qualifiedName.orEmpty())
+            }
+
+            inline operator fun <reified T : Any> invoke(key: String): Store<T> {
                 return Disk(
                     key = key,
                     serializer = try {
@@ -71,7 +75,7 @@ sealed interface CacheSource<T> {
                             messageString = "To use CacheSource.Disk, the generic <T> type passed must be annotated with @Serializable (kotlinx.serialization.Serializable).",
                             throwable = e
                         )
-                        return Memory<T>(key) // Fallback to CacheSource.Memory when missing @Serializable annotation
+                        return Memory(key) // Fallback to CacheSource.Memory when missing @Serializable annotation
                     }
                 )
             }
@@ -92,3 +96,12 @@ sealed interface CacheSource<T> {
         }
     }
 }
+
+@Suppress("ExperimentalAnnotationRetention")
+@RequiresOptIn(
+    level = RequiresOptIn.Level.WARNING,
+    message = "Avoid using caching without a unique key. This can lead to unexpected behavior if you use the same key in multiple places."
+)
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CONSTRUCTOR)
+annotation class UseMemoryCacheWithoutKey
