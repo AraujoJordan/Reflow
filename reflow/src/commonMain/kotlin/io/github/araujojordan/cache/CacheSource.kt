@@ -3,7 +3,9 @@ package io.github.araujojordan.cache
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.*
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -55,7 +57,7 @@ sealed interface CacheSource<T> {
      */
     @OptIn(ExperimentalSerializationApi::class)
     class Disk<T : Any>(
-        key: String,
+        val key: String,
         private val serializer: KSerializer<T>,
     ) : Store<T> {
         companion object {
@@ -83,13 +85,17 @@ sealed interface CacheSource<T> {
 
         private val dataStoreKey = stringPreferencesKey(key)
 
-        override val data: Flow<T?> = ReflowDatastore.datastore.data.map { preferences ->
-            preferences[dataStoreKey]?.let { encodedValue ->
-                ProtoBuf.decodeFromHexString(serializer, encodedValue)
+        @OptIn(ExperimentalCoroutinesApi::class)
+        override val data: Flow<T?> = ReflowLru.getAsFlow<T>(key).flatMapMerge {
+            ReflowDatastore.datastore.data.map { preferences ->
+                preferences[dataStoreKey]?.let { encodedValue ->
+                    ProtoBuf.decodeFromHexString(serializer, encodedValue)
+                }
             }
         }
 
         override suspend fun store(value: T) {
+            ReflowLru.put(value, key)
             ReflowDatastore.datastore.edit { preferences ->
                 preferences[dataStoreKey] = ProtoBuf.encodeToHexString(serializer, value)
             }
@@ -97,11 +103,3 @@ sealed interface CacheSource<T> {
     }
 }
 
-@Suppress("ExperimentalAnnotationRetention")
-@RequiresOptIn(
-    level = RequiresOptIn.Level.WARNING,
-    message = "Avoid using caching without a unique key. This can lead to unexpected behavior if you use the same key in multiple places."
-)
-@Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.FUNCTION, AnnotationTarget.CONSTRUCTOR)
-annotation class UseMemoryCacheWithoutKey
