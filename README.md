@@ -1,6 +1,12 @@
 ![Reflow](assets/ReflowLogo.png)
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.araujojordan/reflow.svg)](https://mvnrepository.com/artifact/io.github.araujojordan/reflow) [![Tests](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml) [![Maven Central](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml)  
+[![Kotlin Multiplatform Library](https://img.shields.io/badge/Kotlim%20Multiplatform-Library-blue?logo=kotlin)](https://kotlinlang.org/docs/multiplatform/kmp-overview.html)
+[![Tests](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/test.yml)
+[![Maven Central](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml/badge.svg)](https://github.com/AraujoJordan/Reflow/actions/workflows/publish.yml)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.3.0-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![GitHub license](https://img.shields.io/github/license/AraujoJordan/Reflow)](LICENSE.txt)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.araujojordan/reflow.svg)](https://mvnrepository.com/artifact/io.github.araujojordan/reflow)
+
 
 A Kotlin Multiplatform library that simplifies data fetching with automatic retry logic, loading state management, and flexible caching strategies. It is designed to integrate seamlessly with Jetbrains/Jetpack Compose for an offline-first experience.
 
