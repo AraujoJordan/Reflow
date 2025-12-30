@@ -16,7 +16,7 @@ In your `ViewModel`, use the `reflow` extension function to wrap your data fetch
 
 ```kotlin
 class MyViewModel : ViewModel() {
-    val uiState = reflow {
+    val dataFlow = reflow {
         api.fetchData() 
     }
 }
@@ -24,23 +24,60 @@ class MyViewModel : ViewModel() {
 
 ### Displaying Content in Compose
 
-Use `ReflowContent` to automatically handle loading, error, and success states:
+Use [ReflowContent](https://github.com/AraujoJordan/Reflow/blob/master/reflow/src/commonMain/kotlin/io/github/araujojordan/Reflow.kt#L44) to automatically handle loading, error, and success states.
+It **does** also work on [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform)
+
 
 ```kotlin
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
-    ReflowContent(viewModel.uiState) { data ->
+    ReflowContent(viewModel.dataFlow) { data ->
         MyContent(data)
     }
 }
 ```
 
-Or for more control, use the `state` property directly:
+or
 
 ```kotlin
 @Composable
 fun MyScreen(viewModel: MyViewModel) {
-    val dataState by viewModel.uiState.state
+    val dataFlow = viewModel.dataFlow
+    PullToRefreshBox(
+        isRefreshing = dataFlow.state.isLoading,
+        onRefresh = { dataFlow.refresh() },
+    ) {
+        ReflowContent(dataFlow) { data ->
+            MyContent(data)
+        }
+    }
+}
+```
+
+
+## Advanced Usage
+
+```kotlin
+val data = reflow(
+    cacheSource = CacheSource.None(), // default
+    dispatcher = Dispatchers.IO, // default
+    initial = Resulting.loading(), // default
+    shouldLoadingOnRefresh = true, // default
+    maxRetries = 3, // default value, 0 to disable
+    retryDelay = 2_000L, // default value
+    shouldRetry = { it is HttpException },
+) {
+    api.fetchData()
+}
+```
+
+
+You can also use the `state` property directly and extracting the fetch state:
+
+```kotlin
+@Composable
+fun MyScreen(viewModel: MyViewModel) {
+    val dataState by viewModel.ui.state
     
     dataState.foldUi(
         onLoading = { CircularProgressIndicator() },
@@ -56,25 +93,39 @@ Add the dependency to your **module** `build.gradle.kts`
 
 Latest version: [![Maven Central](https://img.shields.io/maven-central/v/io.github.araujojordan/reflow.svg)](https://mvnrepository.com/artifact/io.github.araujojordan/reflow)
 
-### For Android-only projects:
+### For KMP or Android-only projects:
 ```kotlin
 dependencies {
-    implementation("io.github.araujojordan:reflow:0.3.0")
+    implementation("io.github.araujojordan:reflow:0.3.0") // Add this
 }
 ```
 
-### For Kotlin Multiplatform projects:
-```kotlin
-kotlin {
-    sourceSets {
-        commonMain.dependencies {
-            implementation("io.github.araujojordan:reflow:0.3.0")
-        }
-    }
-}
-```
+For KMP, just add it on `commonMain.dependencies {}`
+
+## Caching Strategies
+
+Reflow supports multiple caching strategies through the `CacheSource` parameter:
+
+| Strategy | Description                            | Requirement                                                            |
+| :--- |:---------------------------------------|:-----------------------------------------------------------------------|
+| `CacheSource.None()` | No caching (**Default**)                          | None                                                                   |
+| `CacheSource.Memory(key)` | In-memory LRU cache.                   |  A unique `String` key (optional)                                      |
+| `CacheSource.Disk(key)` | Persistent disk cache using DataStore. | A unique `String` key (optional) and the class must be `@Serializable` |
 
 > **Note:** If you plan to use `CacheSource.Disk()`, you must also apply the `@Serializable` from [Kotlin Serialization](https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json) in the class that you want to cache.
+If no key is provided on `Memory` or `Disk`, it will use `T::class.qualifiedName` as key and show a warning.
+Not using an unique key will result in wrong behavior when caching/retrieving the same types of objects in different places.
+
+Example with Disk caching:
+
+```kotlin
+@Serializable
+data class User(val id: Int, val name: String)
+
+val userName = reflow(Disk("user_data")) {
+    api.fetchUser()
+}
+```
 
 ## Pagination
 
@@ -102,56 +153,6 @@ fun UserListScreen(viewModel: MyViewModel) {
         UserItem(user = user)
     }
 }
-```
-
-## Caching Strategies
-
-Reflow supports multiple caching strategies through the `CacheSource` parameter:
-
-| Strategy | Description                            | Requirement                                                            |
-| :--- |:---------------------------------------|:-----------------------------------------------------------------------|
-| `CacheSource.None()` | No caching (**Default**)                          | None                                                                   |
-| `CacheSource.Memory(key)` | In-memory LRU cache.                   |  A unique `String` key (optional)                                      |
-| `CacheSource.Disk(key)` | Persistent disk cache using DataStore. | A unique `String` key (optional) and the class must be `@Serializable` |
-
-Note that if no key is provided on `Memory` or `Disk`, it will use `T::class.qualifiedName` as key and show a warning.
-Not using an unique key will result in wrong behavior when caching/retrieving the same types of objects in different places.
-
-Example with Disk caching:
-
-```kotlin
-@Serializable
-data class User(val id: Int, val name: String)
-
-val userName = reflow(Disk("user_data")) {
-    api.fetchUser()
-}
-```
-
-## Advanced Usage
-
-### Custom Retry Configuration
-
-```kotlin
-val data = reflow(
-    cacheSource = CacheSource.None(), // default
-    dispatcher = Dispatchers.IO, // default
-    initial = Resulting.loading(), // default
-    shouldLoadingOnRefresh = true, // default
-    maxRetries = 3, // default value, 0 to disable
-    retryDelay = 2_000L, // default value
-    shouldRetry = { it is HttpException },
-) {
-    api.fetchData()
-}
-```
-
-### Manual Refreshing
-
-Trigger a manual refresh (e.g., from a `SwipeRefresh`):
-
-```kotlin
-viewModel.uiState.refresh()
 ```
 
 ## Rexecute
