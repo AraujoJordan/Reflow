@@ -31,17 +31,60 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.io.IOException
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Represents the state of a paginated list.
+ *
+ * @param T The type of items in the list.
+ * @property items The list of currently loaded items.
+ * @property isLoadingMore Indicates if more items are currently being loaded.
+ * @property hasMorePages Indicates if there are more pages available to load.
+ */
 data class PaginatedState<T>(
     val items: List<T>,
     val isLoadingMore: Boolean = false,
     val hasMorePages: Boolean = true,
 )
 
+/**
+ * Sealed class representing the different strategies for pagination.
+ */
 sealed class Page(open val pageSize: Int = 10) {
+    /**
+     * Number-based pagination (e.g., page 1, page 2).
+     * @property number The current page number (0-based or 1-based depending on API).
+     * @property pageSize The number of items per page.
+     */
     data class Number(val number: Int = 0, override val pageSize: Int = 10) : Page(pageSize)
+
+    /**
+     * Cursor-based pagination (using a token string).
+     * @property value The cursor token for the next page.
+     * @property pageSize The number of items per page.
+     */
     data class Cursor(val value: String, override val pageSize: Int = 10) : Page(pageSize)
 }
 
+/**
+ * A wrapper around [LazyColumn] that integrates with [ReflowPaginated] for automatic pagination.
+ *
+ * It automatically handles the infinite scrolling logic by checking if the user has scrolled to the end
+ * and triggering [ReflowPaginated.loadMore] if applicable.
+ *
+ * @param T The type of items in the list.
+ * @param paginatedFlow The [ReflowPaginated] instance managing the data.
+ * @param modifier The modifier to apply to the LazyColumn.
+ * @param state The state of the LazyColumn.
+ * @param contentPadding Padding around the content.
+ * @param reverseLayout Whether to reverse the layout.
+ * @param verticalArrangement The vertical arrangement of items.
+ * @param horizontalAlignment The horizontal alignment of items.
+ * @param flingBehavior The fling behavior.
+ * @param userScrollEnabled Whether user scroll is enabled.
+ * @param key A factory of stable and unique keys representing the item.
+ * @param onLoading A Composable block to display at the bottom when loading more items.
+ * @param onError A Composable block to display when an error occurs.
+ * @param content The content for each item in the list.
+ */
 @Composable
 fun <T> LazyColumnPaginated(
     paginatedFlow: ReflowPaginated<T>,
@@ -108,22 +151,56 @@ fun <T> LazyColumnPaginated(
     }
 }
 
+/**
+ * Manages paginated data fetching, including refreshing and loading more pages.
+ *
+ * @param T The type of items in the list.
+ * @property stateFlow The [StateFlow] holding the current [PaginatedState].
+ */
 class ReflowPaginated<T> internal constructor(
     private val refreshTrigger: MutableSharedFlow<Unit>,
     private val loadMoreTrigger: MutableSharedFlow<Unit>,
     val stateFlow: StateFlow<Resulting<PaginatedState<T>>>,
 ) {
 
+    /**
+     * Checks if there are more pages available based on the current state.
+     */
     val hasMorePages: Boolean
         get() = stateFlow.value.getOrNull()?.hasMorePages ?: true
 
+    /**
+     * Checks if a "load more" operation is currently in progress.
+     */
     val isLoadingMore: Boolean
         get() = stateFlow.value.getOrNull()?.isLoadingMore ?: false
 
+    /**
+     * Triggers a refresh of the list, reloading from the first page.
+     */
     fun refresh() = refreshTrigger.tryEmit(Unit)
+
+    /**
+     * Triggers loading the next page of data.
+     */
     fun loadMore() = loadMoreTrigger.tryEmit(Unit)
 }
 
+/**
+ * Creates a [ReflowPaginated] instance for number-based pagination.
+ *
+ * @param T The type of items in the list.
+ * @param dispatcher The coroutine dispatcher for operations. Defaults to [Dispatchers.IO].
+ * @param initialPage The initial page number configuration. Defaults to [Page.Number] with default values.
+ * @param initial The initial state. Defaults to [Resulting.loading].
+ * @param shouldLoadingOnRefresh Whether to show loading on refresh. Defaults to true.
+ * @param cacheSource The caching strategy for the *entire list*. Defaults to [CacheSource.None].
+ * @param maxRetries Maximum retry attempts. Defaults to [MAX_RETRIES].
+ * @param retryDelay Delay between retries. Defaults to [RETRY_DELAY].
+ * @param shouldRetry Predicate for retrying. Defaults to retrying on [IOException].
+ * @param fetch The suspend function to fetch a page of items given a [Page.Number].
+ * @return A [ReflowPaginated] instance.
+ */
 fun <T> ViewModel.reflowPaginated(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initialPage: Page.Number = Page.Number(),
@@ -147,6 +224,21 @@ fun <T> ViewModel.reflowPaginated(
     fetch = { fetch.invoke(it as Page.Number) },
 )
 
+/**
+ * Creates a [ReflowPaginated] instance for cursor-based pagination.
+ *
+ * @param T The type of items in the list.
+ * @param dispatcher The coroutine dispatcher for operations. Defaults to [Dispatchers.IO].
+ * @param initialPage The initial cursor configuration.
+ * @param initial The initial state. Defaults to [Resulting.loading].
+ * @param shouldLoadingOnRefresh Whether to show loading on refresh. Defaults to true.
+ * @param cacheSource The caching strategy for the *entire list*. Defaults to [CacheSource.None].
+ * @param maxRetries Maximum retry attempts. Defaults to [MAX_RETRIES].
+ * @param retryDelay Delay between retries. Defaults to [RETRY_DELAY].
+ * @param shouldRetry Predicate for retrying. Defaults to retrying on [IOException].
+ * @param fetch The suspend function to fetch a page of items given a [Page.Cursor].
+ * @return A [ReflowPaginated] instance.
+ */
 fun <T> ViewModel.reflowPaginated(
     dispatcher: CoroutineDispatcher = Dispatchers.IO,
     initialPage: Page.Cursor,
@@ -170,6 +262,22 @@ fun <T> ViewModel.reflowPaginated(
     fetch = { fetch.invoke(it as Page.Cursor) },
 )
 
+/**
+ * Internal helper to create a [ReflowPaginated] within a specific [CoroutineScope].
+ *
+ * @param T The type of items in the list.
+ * @param scope The [CoroutineScope] in which the ReflowPaginated will operate.
+ * @param dispatcher The [CoroutineDispatcher] for operations.
+ * @param initialPage The initial page key.
+ * @param initial The initial [Resulting] state.
+ * @param shouldLoadingOnRefresh Whether to show loading on refresh.
+ * @param cacheSource The [CacheSource] strategy.
+ * @param maxRetries Maximum retry attempts.
+ * @param retryDelay Delay between retries.
+ * @param shouldRetry Predicate for retrying.
+ * @param fetch The function to fetch data for a given page.
+ * @return A [ReflowPaginated] instance.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> reflowPaginatedIn(
     scope: CoroutineScope,

@@ -16,15 +16,37 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.IOException
 
+/**
+ * An internal singleton object that manages the execution and retrying of jobs.
+ *
+ * It maintains a queue of pending jobs and handles their execution, deduplication, and retrying
+ * upon failure. It uses a [Mutex] to ensure thread safety when accessing the job map.
+ */
 @OptIn(DelicateCoroutinesApi::class)
 internal object Rexecute {
     private val channel = Channel<RexecuteJob>(Channel.UNLIMITED)
     private val pendingJobsMutex = Mutex()
     private val pendingJobs = mutableMapOf<String, RexecuteJob>()
+    
+    /**
+     * Clears all pending jobs.
+     */
     suspend fun clear() = pendingJobsMutex.withLock { pendingJobs.clear() }
+
+    /**
+     * Returns the number of currently active or pending jobs.
+     */
     suspend fun activeJobCount(): Int = pendingJobsMutex.withLock { pendingJobs.size }
+    
+    /**
+     * Returns the key of the first pending job, if any.
+     */
     suspend fun peekKey(): String? = pendingJobsMutex.withLock { pendingJobs.keys.firstOrNull() }
 
+    /**
+     * Submits a new job to be executed.
+     * If a job with the same key already exists, it is overwritten in the map (deduplication logic might handle this before submission or during processing).
+     */
     suspend fun submitJob(job: RexecuteJob) {
         pendingJobsMutex.withLock { pendingJobs[job.key] = job }
         channel.send(job)
@@ -75,6 +97,19 @@ internal object Rexecute {
     }
 }
 
+/**
+ * Executes a task with automatic retries and caching, keyed by the return type [T].
+ *
+ * This extension function uses the qualified name of class [T] as the unique key for the operation.
+ * It is useful for operations where there is only one instance of the task per type (e.g., a singleton setting).
+ *
+ * @param T The return type of the block, used to generate the unique key.
+ * @param shouldRetry A predicate to determine if the task should be retried on failure. Defaults to retrying on [IOException].
+ * @param onFailure A callback to be invoked when the task fails and will not be retried.
+ * @param dispatcher The coroutine dispatcher to use. Defaults to [Dispatchers.IO].
+ * @param block The suspend function to execute.
+ * @return A [Flow] emitting the [Resulting] state of the operation.
+ */
 @UseMemoryCacheWithoutKey
 inline fun <reified T : Any> ViewModel.rexecute(
     noinline shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -89,6 +124,21 @@ inline fun <reified T : Any> ViewModel.rexecute(
     block = block,
 )
 
+/**
+ * Executes a task with automatic retries and caching, identified by a unique [key].
+ *
+ * This function handles the execution of a task that should be reliable (e.g., POST requests, mutations).
+ * If the task fails with a retryable exception, it is queued for retry in the background.
+ * The result is cached in an in-memory LRU cache ([ReflowLru]) and emitted via the returned Flow.
+ *
+ * @param T The return type of the block.
+ * @param key A unique key to identify this operation. Used for deduplication and caching.
+ * @param shouldRetry A predicate to determine if the task should be retried on failure. Defaults to retrying on [IOException].
+ * @param onFailure A callback to be invoked when the task fails and will not be retried.
+ * @param dispatcher The coroutine dispatcher to use. Defaults to [Dispatchers.IO].
+ * @param block The suspend function to execute.
+ * @return A [Flow] emitting the [Resulting] state of the operation.
+ */
 fun <T : Any> ViewModel.rexecute(
     key: String,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -103,6 +153,17 @@ fun <T : Any> ViewModel.rexecute(
     block = block,
 )
 
+/**
+ * Internal helper to execute a task within a specific [CoroutineScope].
+ *
+ * @param T The return type of the block.
+ * @param key The unique key for the operation.
+ * @param shouldRetry Predicate for retrying.
+ * @param onFailure Callback for final failure.
+ * @param dispatcher Dispatcher for the operation.
+ * @param block The task to execute.
+ * @return A [Flow] of [Resulting].
+ */
 fun <T : Any> CoroutineScope.rexecuteIn(
     key: String,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
@@ -135,6 +196,15 @@ fun <T : Any> CoroutineScope.rexecuteIn(
     emitAll(ReflowLru.getAsFlow<T>(key).mapNotNull { it?.let { Resulting.content(it) } }) // Listen for the result
 }.flowOn(dispatcher)
 
+/**
+ * Represents a job managed by [Rexecute].
+ *
+ * @property key The unique identifier for the job.
+ * @property retries The number of times this job has been retried.
+ * @property shouldRetry Predicate to check if the job should be retried on a given error.
+ * @property onFailure Callback to execute if the job fails and cannot be retried.
+ * @property block The actual task to execute.
+ */
 internal data class RexecuteJob(
     val key: String,
     val retries: Long,
