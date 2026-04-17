@@ -53,7 +53,7 @@ internal object Rexecute {
     }
 
     init {
-        GlobalScope.launch(Dispatchers.IO) {
+        GlobalScope.launch(ioDispatcher) {
             for (job in channel) {
                 // Check if the job is still the valid one for this key
                 val isValid = pendingJobsMutex.withLock { pendingJobs[job.key] === job }
@@ -106,7 +106,7 @@ internal object Rexecute {
  * @param T The return type of the block, used to generate the unique key.
  * @param shouldRetry A predicate to determine if the task should be retried on failure. Defaults to retrying on [IOException].
  * @param onFailure A callback to be invoked when the task fails and will not be retried.
- * @param dispatcher The coroutine dispatcher to use. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher to use. Defaults to [ioDispatcher].
  * @param block The suspend function to execute.
  * @return A [Flow] emitting the [Resulting] state of the operation.
  */
@@ -114,10 +114,10 @@ internal object Rexecute {
 inline fun <reified T : Any> ViewModel.rexecute(
     noinline shouldRetry: (Throwable) -> Boolean = { it is IOException },
     noinline onFailure: (Throwable) -> Unit = { Logger.e(tag = "ReActFailure", throwable = it, messageString = "Fail on reAct") },
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     noinline block: suspend () -> T,
 ) = viewModelScope.rexecuteIn(
-    key = T::class.qualifiedName.orEmpty(),
+    key = T::class.simpleName.orEmpty(),
     shouldRetry = shouldRetry,
     onFailure = onFailure,
     dispatcher = dispatcher,
@@ -133,9 +133,9 @@ inline fun <reified T : Any> ViewModel.rexecute(
  *
  * @param T The return type of the block.
  * @param key A unique key to identify this operation. Used for deduplication and caching.
- * @param shouldRetry A predicate to determine if the task should be retried on failure. Defaults to retrying on [IOException].
+ * @param shouldRetry A predicate to determine if a retry should be attempted based on the exception. Defaults to retrying on [IOException].
  * @param onFailure A callback to be invoked when the task fails and will not be retried.
- * @param dispatcher The coroutine dispatcher to use. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher to use. Defaults to [ioDispatcher].
  * @param block The suspend function to execute.
  * @return A [Flow] emitting the [Resulting] state of the operation.
  */
@@ -143,7 +143,7 @@ fun <T : Any> ViewModel.rexecute(
     key: String,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
     onFailure: (Throwable) -> Unit = { Logger.e(tag = "ReActFailure", throwable = it, messageString = "Fail on reAct") },
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     block: suspend () -> T,
 ) = viewModelScope.rexecuteIn(
     key = key,
@@ -168,7 +168,7 @@ fun <T : Any> CoroutineScope.rexecuteIn(
     key: String,
     shouldRetry: (Throwable) -> Boolean = { it is IOException },
     onFailure: (Throwable) -> Unit = { Logger.e(tag = "ReActFailure", throwable = it, messageString = "Fail on reAct") },
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     block: suspend () -> T,
 ) = flow<Resulting<T>> {
     emit(Resulting.loading())

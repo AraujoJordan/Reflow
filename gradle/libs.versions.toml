@@ -13,8 +13,18 @@ lifecycleViewmodel = "2.9.6"
 vanniktechMavenPublish = "0.35.0"
 material3 = "1.9.0"
 compose = "1.9.3"
+ktor = "3.0.1"
+kotlinxSerializationJson = "1.7.3"
 
 [libraries]
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
 datastore = { module = "androidx.datastore:datastore", version.ref = "datastorePreferencesCore" }
 datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastorePreferencesCore" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
@@ -35,6 +45,7 @@ androidxCollection = { module = "androidx.collection:collection", version.ref = 
 
 [plugins]
 android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }
 jetbrainsCompose = { id = "org.jetbrains.compose", version.ref = "compose" }

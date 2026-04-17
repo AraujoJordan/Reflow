@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "reflow"
 include(":reflow")
+include(":sample")

@@ -17,7 +17,7 @@ internal object ReflowLru {
     @Suppress("UNCHECKED_CAST")
     private fun <T: Any> get(key: String): T? = cache[key] as? T
 
-    fun put(value: Any?, key: String? = value?.let { it::class.qualifiedName }) {
+    fun put(value: Any?, key: String? = value?.let { it::class.simpleName }) {
         if (key == null || value == null) return
         cache.put(key, value)
         _events.tryEmit(key)

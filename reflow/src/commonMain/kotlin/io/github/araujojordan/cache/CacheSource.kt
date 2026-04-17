@@ -1,8 +1,8 @@
 package io.github.araujojordan.cache
 
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import co.touchlab.kermit.Logger
+import io.github.araujojordan.persistentGetFlow
+import io.github.araujojordan.persistentSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapMerge
@@ -39,7 +39,7 @@ sealed interface CacheSource<T> {
     class Memory<T : Any>(val key: String) : Store<T> {
         companion object {
             @UseMemoryCacheWithoutKey
-            inline operator fun <reified T : Any> invoke() = Memory<T>(T::class.qualifiedName.orEmpty())
+            inline operator fun <reified T : Any> invoke() = Memory<T>(T::class.simpleName.orEmpty())
         }
 
         override val data: Flow<T?> = ReflowLru.getAsFlow(key)
@@ -63,43 +63,48 @@ sealed interface CacheSource<T> {
         companion object {
             @UseMemoryCacheWithoutKey
             inline operator fun <reified T : Any> invoke(): Store<T> {
-                return Disk(key = T::class.qualifiedName.orEmpty())
+                return try {
+                    Disk(
+                        key = T::class.simpleName.orEmpty(),
+                        serializer = serializer<T>()
+                    )
+                } catch (e: SerializationException) {
+                    Logger.e(
+                        tag = "Reflow",
+                        messageString = "To use CacheSource.Disk, the generic <T> type passed must be annotated with @Serializable (kotlinx.serialization.Serializable).",
+                        throwable = e
+                    )
+                    Memory(T::class.simpleName.orEmpty()) // Fallback to CacheSource.Memory when missing @Serializable annotation
+                }
             }
 
             inline operator fun <reified T : Any> invoke(key: String): Store<T> {
-                return Disk(
-                    key = key,
-                    serializer = try {
-                        serializer<T>()
-                    } catch (e: SerializationException) {
-                        Logger.e(
-                            tag = "Reflow",
-                            messageString = "To use CacheSource.Disk, the generic <T> type passed must be annotated with @Serializable (kotlinx.serialization.Serializable).",
-                            throwable = e
-                        )
-                        return Memory(key) // Fallback to CacheSource.Memory when missing @Serializable annotation
-                    }
-                )
+                return try {
+                    Disk(
+                        key = key,
+                        serializer = serializer<T>()
+                    )
+                } catch (e: SerializationException) {
+                    Logger.e(
+                        tag = "Reflow",
+                        messageString = "To use CacheSource.Disk, the generic <T> type passed must be annotated with @Serializable (kotlinx.serialization.Serializable).",
+                        throwable = e
+                    )
+                    Memory(key) // Fallback to CacheSource.Memory when missing @Serializable annotation
+                }
             }
         }
 
-        private val dataStoreKey = stringPreferencesKey(key)
-
         @OptIn(ExperimentalCoroutinesApi::class)
         override val data: Flow<T?> = ReflowLru.getAsFlow<T>(key).flatMapMerge {
-            ReflowDatastore.datastore.data.map { preferences ->
-                preferences[dataStoreKey]?.let { encodedValue ->
-                    ProtoBuf.decodeFromHexString(serializer, encodedValue)
-                }
+            persistentGetFlow(key).map { encodedValue ->
+                encodedValue?.let { ProtoBuf.decodeFromHexString(serializer, it) }
             }
         }
 
         override suspend fun store(value: T) {
             ReflowLru.put(value, key)
-            ReflowDatastore.datastore.edit { preferences ->
-                preferences[dataStoreKey] = ProtoBuf.encodeToHexString(serializer, value)
-            }
+            persistentSet(key, ProtoBuf.encodeToHexString(serializer, value))
         }
     }
 }
-

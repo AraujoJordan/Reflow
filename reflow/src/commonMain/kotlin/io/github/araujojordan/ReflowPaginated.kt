@@ -190,7 +190,7 @@ class ReflowPaginated<T> internal constructor(
  * Creates a [ReflowPaginated] instance for number-based pagination.
  *
  * @param T The type of items in the list.
- * @param dispatcher The coroutine dispatcher for operations. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher for operations. Defaults to [ioDispatcher].
  * @param initialPage The initial page number configuration. Defaults to [Page.Number] with default values.
  * @param initial The initial state. Defaults to [Resulting.loading].
  * @param shouldLoadingOnRefresh Whether to show loading on refresh. Defaults to true.
@@ -202,7 +202,7 @@ class ReflowPaginated<T> internal constructor(
  * @return A [ReflowPaginated] instance.
  */
 fun <T> ViewModel.reflowPaginated(
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initialPage: Page.Number = Page.Number(),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
@@ -228,7 +228,7 @@ fun <T> ViewModel.reflowPaginated(
  * Creates a [ReflowPaginated] instance for cursor-based pagination.
  *
  * @param T The type of items in the list.
- * @param dispatcher The coroutine dispatcher for operations. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher for operations. Defaults to [ioDispatcher].
  * @param initialPage The initial cursor configuration.
  * @param initial The initial state. Defaults to [Resulting.loading].
  * @param shouldLoadingOnRefresh Whether to show loading on refresh. Defaults to true.
@@ -240,7 +240,7 @@ fun <T> ViewModel.reflowPaginated(
  * @return A [ReflowPaginated] instance.
  */
 fun <T> ViewModel.reflowPaginated(
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initialPage: Page.Cursor,
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
@@ -281,7 +281,7 @@ fun <T> ViewModel.reflowPaginated(
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> reflowPaginatedIn(
     scope: CoroutineScope,
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initialPage: Page = Page.Number(0),
     initial: Resulting<PaginatedState<T>> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,

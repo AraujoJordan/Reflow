@@ -1,5 +1,5 @@
-import com.android.build.api.dsl.androidLibrary
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.github.araujojordan"
-version = "0.3.0"
+version = "0.3.1"
 
 kotlin {
     jvm()
@@ -35,7 +35,33 @@ kotlin {
         }
     }
     iosArm64()
+    iosX64()
+    iosSimulatorArm64()
+    
+    js {
+        browser()
+        nodejs()
+    }
+    
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        nodejs()
+    }
+
     sourceSets {
+        val nativeDesktopMain by creating {
+            dependsOn(getByName("commonMain"))
+        }
+        val iosMain by creating {
+            dependsOn(nativeDesktopMain)
+        }
+        getByName("androidMain").dependsOn(nativeDesktopMain)
+        getByName("jvmMain").dependsOn(nativeDesktopMain)
+        getByName("iosArm64Main").dependsOn(iosMain)
+        getByName("iosX64Main").dependsOn(iosMain)
+        getByName("iosSimulatorArm64Main").dependsOn(iosMain)
+
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.lifecycle.viewmodel)
@@ -49,12 +75,15 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
 
-            implementation(libs.datastore)
-            implementation(libs.datastore.preferences.core)
             implementation(libs.protobuf.kotlin)
 
             implementation(libs.kermit)
             implementation(libs.androidxCollection)
+        }
+
+        nativeDesktopMain.dependencies {
+            implementation(libs.datastore)
+            implementation(libs.datastore.preferences.core)
         }
 
         commonTest.dependencies {

@@ -123,7 +123,7 @@ fun <T> ReflowContent(
  *
  * @param T The type of data to fetch.
  * @param cacheSource The caching strategy to use. Defaults to [CacheSource.None].
- * @param dispatcher The coroutine dispatcher to use for the fetch operation. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher to use for the fetch operation. Defaults to [ioDispatcher].
  * @param initial The initial state of the Reflow. Defaults to [Resulting.loading].
  * @param shouldLoadingOnRefresh Whether to emit a loading state when refreshing. Defaults to true.
  * @param maxRetries The maximum number of retry attempts for failed fetches. Defaults to [MAX_RETRIES].
@@ -134,7 +134,7 @@ fun <T> ReflowContent(
  */
 fun <T> ViewModel.reflow(
     cacheSource: CacheSource<T> = CacheSource.None(),
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
     maxRetries: Int = MAX_RETRIES,
@@ -158,7 +158,7 @@ fun <T> ViewModel.reflow(
  *
  * @param T The type of data to fetch.
  * @param cacheSource The caching strategy to use. Defaults to [CacheSource.None].
- * @param dispatcher The coroutine dispatcher to use for the flow collection. Defaults to [Dispatchers.IO].
+ * @param dispatcher The coroutine dispatcher to use for the flow collection. Defaults to [ioDispatcher].
  * @param initial The initial state of the Reflow. Defaults to [Resulting.loading].
  * @param shouldLoadingOnRefresh Whether to emit a loading state when refreshing. Defaults to true.
  * @param maxRetries The maximum number of retry attempts for failed flow collections. Defaults to [MAX_RETRIES].
@@ -169,7 +169,7 @@ fun <T> ViewModel.reflow(
  */
 fun <T> ViewModel.reflow(
     cacheSource: CacheSource<T> = CacheSource.None(),
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initial: Resulting<T> = Resulting.loading(),
     shouldLoadingOnRefresh: Boolean = true,
     maxRetries: Int = MAX_RETRIES,
@@ -206,7 +206,7 @@ fun <T> ViewModel.reflow(
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <T> reflowIn(
     scope: CoroutineScope,
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    dispatcher: CoroutineDispatcher = ioDispatcher,
     initial: Resulting<T> = Resulting.loading<T>(),
     shouldLoadingOnRefresh: Boolean = true,
     cacheSource: CacheSource<T> = CacheSource.None(),
@@ -231,7 +231,7 @@ fun <T> reflowIn(
     val fetched = fetchFlow
         .map {
             when (cacheSource) {
-                is CacheSource.Store<T> -> scope.launch(Dispatchers.IO) { cacheSource.store(it) }
+                is CacheSource.Store<T> -> scope.launch(ioDispatcher) { cacheSource.store(it) }
                 is CacheSource.None -> {}
             }
             Resulting.content(it)
